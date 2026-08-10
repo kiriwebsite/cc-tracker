@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>刷卡記帳</title>
+<meta name="description" content="手動記錄每張信用卡的消費">
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0b12" media="(prefers-color-scheme: dark)">
+
+<!-- iOS 加到主畫面 -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="刷卡記帳">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── 總覽 ────────────────────────────────── -->
+  <section class="page" id="page-summary">
+    <header class="top">
+      <button class="mo-nav" id="mo-prev" aria-label="上個月">‹</button>
+      <button class="mo-label" id="mo-label" aria-label="選擇月份">2026 年 7 月</button>
+      <button class="mo-nav" id="mo-next" aria-label="下個月">›</button>
+    </header>
+
+    <div class="total-block">
+      <div class="total-label">本月合計</div>
+      <div class="total-amount" id="total-amount">$0</div>
+      <div class="total-sub" id="total-sub">尚無消費紀錄</div>
+    </div>
+
+    <div class="section-title">各卡小計</div>
+    <div id="summary-cards" class="card-summaries"></div>
+
+    <div class="section-title" id="cat-title" hidden>分類佔比</div>
+    <div id="cat-breakdown" class="cat-list"></div>
+
+    <div class="pad-bottom"></div>
+  </section>
+
+  <!-- ── 明細 ────────────────────────────────── -->
+  <section class="page" id="page-list" hidden>
+    <header class="top">
+      <button class="mo-nav" id="mo-prev2" aria-label="上個月">‹</button>
+      <button class="mo-label" id="mo-label2">2026 年 7 月</button>
+      <button class="mo-nav" id="mo-next2" aria-label="下個月">›</button>
+    </header>
+    <div class="filter-row" id="filter-row"></div>
+    <div id="expense-list" class="expense-list"></div>
+    <div class="pad-bottom"></div>
+  </section>
+
+  <!-- ── 卡片 ────────────────────────────────── -->
+  <section class="page" id="page-cards" hidden>
+    <header class="top"><h1>我的信用卡</h1></header>
+    <div id="card-manage" class="card-manage"></div>
+    <button class="btn-block" id="btn-add-card">＋ 新增信用卡</button>
+    <div class="pad-bottom"></div>
+  </section>
+
+  <!-- ── 設定 ────────────────────────────────── -->
+  <section class="page" id="page-settings" hidden>
+    <header class="top"><h1>設定</h1></header>
+
+    <div class="section-title">資料備份</div>
+    <div class="settings-group">
+      <button class="row-btn" id="btn-export">
+        <span>匯出 JSON 備份</span><span class="chev">›</span>
+      </button>
+      <button class="row-btn" id="btn-import">
+        <span>從備份匯入</span><span class="chev">›</span>
+      </button>
+      <input type="file" id="file-import" accept="application/json,.json" hidden>
+    </div>
+    <p class="hint" id="backup-status"></p>
+    <p class="hint">資料只存在這支手機的瀏覽器裡，沒有雲端。清除瀏覽器資料或移除主畫面 App 就會消失，記得定期匯出備份。</p>
+
+    <div class="section-title">顯示</div>
+    <div class="settings-group">
+      <label class="row-btn" for="sel-currency">
+        <span>幣別符號</span>
+        <input id="sel-currency" class="inline-input" maxlength="4" value="$">
+      </label>
+    </div>
+
+    <div class="section-title">危險操作</div>
+    <div class="settings-group">
+      <button class="row-btn danger" id="btn-wipe"><span>清除所有資料</span><span class="chev">›</span></button>
+    </div>
+
+    <p class="hint" id="stat-line"></p>
+    <div class="pad-bottom"></div>
+  </section>
+
+  <!-- ── 底部導覽 ─────────────────────────────── -->
+  <nav class="tabbar">
+    <button class="tab active" data-page="summary">
+      <svg viewBox="0 0 24 24"><path d="M4 19V10M10 19V5M16 19v-6M22 19H2"/></svg><span>總覽</span>
+    </button>
+    <button class="tab" data-page="list">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>明細</span>
+    </button>
+    <div class="fab-slot"><button class="fab" id="btn-add-expense" aria-label="記一筆">＋</button></div>
+    <button class="tab" data-page="cards">
+      <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg><span>卡片</span>
+    </button>
+    <button class="tab" data-page="settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>設定</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ── 記一筆 表單 ──────────────────────────── -->
+<div class="sheet-wrap" id="sheet-expense" hidden>
+  <div class="backdrop" data-close></div>
+  <form class="sheet" id="form-expense" novalidate>
+    <div class="grabber"></div>
+    <div class="sheet-head">
+      <button type="button" class="sheet-cancel" data-close>取消</button>
+      <h2 id="exp-title">記一筆消費</h2>
+      <button type="submit" class="sheet-save">儲存</button>
+    </div>
+
+    <div class="amount-input">
+      <span class="cur" id="amount-cur">$</span>
+      <input type="text" id="exp-amount" inputmode="decimal" placeholder="0" autocomplete="off">
+    </div>
+    <div class="err" id="exp-err" hidden></div>
+
+    <label class="field-label">使用哪張卡</label>
+    <div class="chip-row" id="exp-cards"></div>
+
+    <label class="field-label">分類</label>
+    <div class="chip-row wrap" id="exp-cats"></div>
+
+    <div class="two-col">
+      <div>
+        <label class="field-label" for="exp-date">日期</label>
+        <input type="date" id="exp-date">
+      </div>
+      <div>
+        <label class="field-label" for="exp-note">備註</label>
+        <input type="text" id="exp-note" placeholder="選填" maxlength="40" autocomplete="off">
+      </div>
+    </div>
+
+    <button type="button" class="btn-delete" id="btn-del-expense" hidden>刪除這筆</button>
+    <div class="sheet-pad"></div>
+  </form>
+</div>
+
+<!-- ── 卡片 表單 ────────────────────────────── -->
+<div class="sheet-wrap" id="sheet-card" hidden>
+  <div class="backdrop" data-close></div>
+  <form class="sheet" id="form-card" novalidate>
+    <div class="grabber"></div>
+    <div class="sheet-head">
+      <button type="button" class="sheet-cancel" data-close>取消</button>
+      <h2 id="card-title">新增信用卡</h2>
+      <button type="submit" class="sheet-save">儲存</button>
+    </div>
+
+    <div class="card-preview" id="card-preview">
+      <span class="cp-name">卡片名稱</span>
+      <span class="cp-last4">•••• ••••</span>
+    </div>
+    <div class="err" id="card-err" hidden></div>
+
+    <label class="field-label" for="card-name">卡片名稱</label>
+    <input type="text" id="card-name" placeholder="例：國泰 CUBE" maxlength="20" autocomplete="off">
+
+    <label class="field-label" for="card-last4">卡號末四碼（選填）</label>
+    <input type="text" id="card-last4" inputmode="numeric" placeholder="1234" autocomplete="off">
+
+    <label class="field-label">顏色</label>
+    <div class="swatches" id="card-colors"></div>
+
+    <button type="button" class="btn-delete" id="btn-del-card" hidden>刪除這張卡</button>
+    <div class="sheet-pad"></div>
+  </form>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
