@@ -59,18 +59,12 @@ const days = computed(() => {
 
 <template>
   <div class="filter-row">
-    <button class="f-chip" :class="{ on: filterCard === 'all' }" @click="filterCard = 'all'">
-      全部
-    </button>
-    <button
-      v-for="c in store.cards"
-      :key="c.id"
-      class="f-chip"
-      :class="{ on: filterCard === c.id }"
-      @click="filterCard = c.id"
-    >
-      {{ c.name }}
-    </button>
+    <div class="select-pill">
+      <select v-model="filterCard" aria-label="依卡片篩選">
+        <option value="all">全部卡片</option>
+        <option v-for="c in store.cards" :key="c.id" :value="c.id">{{ c.name }}</option>
+      </select>
+    </div>
   </div>
 
   <EmptyState

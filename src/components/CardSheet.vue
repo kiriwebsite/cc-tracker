@@ -16,14 +16,22 @@ const emit = defineEmits(['close'])
 const name = ref('')
 const last4 = ref('')
 const color = ref(CARD_COLORS[0])
+const image = ref(null)
 const err = ref('')
 const nameInput = ref(null)
+const fileInput = ref(null)
 
 const editing = computed(() =>
   props.editId ? store.cards.find((c) => c.id === props.editId) : null,
 )
 
 const gradient = computed(() => `linear-gradient(140deg, ${color.value}, ${shade(color.value, -28)})`)
+
+const previewStyle = computed(() =>
+  image.value
+    ? { backgroundImage: `url(${image.value})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: gradient.value },
+)
 
 watch(
   () => props.open,
@@ -34,6 +42,7 @@ watch(
     name.value = c ? c.name : ''
     last4.value = c ? c.last4 || '' : ''
     color.value = c ? c.color : CARD_COLORS[store.cards.length % CARD_COLORS.length]
+    image.value = c ? c.image || null : null
     err.value = ''
 
     await nextTick()
@@ -59,7 +68,7 @@ function submit() {
     return
   }
 
-  const payload = { name: n, last4: last4.value.trim(), color: color.value }
+  const payload = { name: n, last4: last4.value.trim(), color: color.value, image: image.value }
 
   if (editing.value) {
     updateCard(props.editId, payload)
@@ -70,6 +79,42 @@ function submit() {
   }
 
   emit('close')
+}
+
+async function onFile(ev) {
+  const file = ev.target.files?.[0]
+  // 清掉 value，同一張圖再選一次也會觸發 change
+  ev.target.value = ''
+  if (!file) return
+  try {
+    image.value = await compressImage(file)
+  } catch {
+    toast('讀不了這張圖片')
+  }
+}
+
+// 縮到最長邊 1000px、JPEG 0.8 壓縮後轉 dataURL 存進 store。
+// 一張約 60–150KB，localStorage 的額度放幾十張卡沒問題；
+// 圖片存在 store 裡，會自動跟著 JSON 備份匯出／匯入。
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, 1000 / Math.max(img.width, img.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/jpeg', 0.8))
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('無法解碼圖片'))
+    }
+    img.src = url
+  })
 }
 
 function del() {
@@ -92,7 +137,7 @@ function del() {
     @close="$emit('close')"
     @submit="submit"
   >
-    <div class="card-preview" :style="{ background: gradient }">
+    <div class="card-preview" :class="{ 'has-img': image }" :style="previewStyle">
       <span class="cp-name">{{ name.trim() || '卡片名稱' }}</span>
       <span class="cp-last4">{{ last4 ? '•••• ' + last4 : '•••• ••••' }}</span>
     </div>
@@ -122,6 +167,17 @@ function del() {
       :value="last4"
       @input="onLast4"
     />
+
+    <label class="field-label">卡面圖片（選填）</label>
+    <div class="img-row">
+      <button type="button" class="btn-lite" @click="fileInput.click()">
+        {{ image ? '換一張圖片' : '上傳圖片' }}
+      </button>
+      <button v-if="image" type="button" class="btn-lite danger" @click="image = null">
+        移除圖片
+      </button>
+    </div>
+    <input ref="fileInput" type="file" accept="image/*" hidden @change="onFile" />
 
     <label class="field-label">顏色</label>
     <div class="swatches">

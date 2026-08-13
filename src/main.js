@@ -1,9 +1,13 @@
 import { createApp } from 'vue'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App.vue'
+import { initApod } from './composables/useApod'
 import './style.css'
 
 createApp(App).mount('#app')
+
+// NASA 每日星空背景（失敗就維持素色，不影響功能）
+initApod()
 
 // 有新版就自動換上，使用者下次開啟即是最新
 registerSW({ immediate: true })

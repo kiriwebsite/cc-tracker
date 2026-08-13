@@ -3,3 +3,7 @@ dist
 dev-dist
 .DS_Store
 *.local
+
+# CI 每天產生的 APOD 背景（scripts/fetch-apod.mjs），不進版控
+public/apod.json
+public/apod.jpg

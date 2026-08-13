@@ -45,8 +45,8 @@ export const money = (n) => store.currency + Math.round(n).toLocaleString('en-US
 
 /* ── 卡片 ─────────────────────────────────── */
 
-export function addCard({ name, last4, color }) {
-  store.cards.push({ id: uid(), name, last4, color, createdAt: Date.now() })
+export function addCard({ name, last4, color, image = null }) {
+  store.cards.push({ id: uid(), name, last4, color, image, createdAt: Date.now() })
 }
 
 export function updateCard(id, patch) {

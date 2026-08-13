@@ -23,8 +23,8 @@ export default defineConfig({
         scope: './',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#0b0b12',
-        theme_color: '#4f46e5',
+        background_color: '#f3f4f6',
+        theme_color: '#f3f4f6',
         lang: 'zh-Hant',
         categories: ['finance', 'productivity'],
         icons: [
@@ -35,8 +35,22 @@ export default defineConfig({
       },
 
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,webmanifest}'],
+        // jpg/json 是每日 APOD 背景（CI 產生），進 precache 才能離線顯示
+        globPatterns: ['**/*.{js,css,html,png,jpg,json,webmanifest}'],
         cleanupOutdatedCaches: true,
+        // APOD 星空圖抓過一次就進快取，離線也有背景可看
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              url.hostname === 'apod.nasa.gov' || url.hostname === 'img.youtube.com',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'apod-images',
+              expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
 
       devOptions: { enabled: true, type: 'module' },

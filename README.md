@@ -34,7 +34,7 @@ npm run build
 src/
   main.js                  掛載 app、註冊 SW、申請持久化儲存
   App.vue                  分頁切換、兩個面板的開關狀態
-  style.css                全站樣式（深／淺色自動切換）
+  style.css                全站樣式（淺色主題、近黑 dock）
   data/categories.js       分類與卡片配色常數
   utils/date.js            日期格式化、月份位移、顏色深淺
   composables/
@@ -94,6 +94,31 @@ iOS 只允許 **HTTPS** 網站加到主畫面並以 App 形式執行。先 `npm 
 3. 「總覽」看本月各卡小計與分類佔比，「明細」看每一筆
 4. 明細裡點任何一筆可以編輯或刪除
 5. 左右箭頭切換月份，點中間月份字樣跳回本月
+
+## 星空背景（NASA APOD）＋亮度自適應
+
+全頁背景每天換一張 NASA 每日天文一圖，文字顏色會依圖片深淺自動切換。
+
+**架構：抓圖與偵測都在 CI，不在瀏覽器。** `apod.nasa.gov` 擋 CORS，
+瀏覽器讀不了像素做不了亮度分析；GitHub Actions 沒這限制。
+
+1. deploy workflow 每天台灣 00:10（`cron: 10 16 * * *`）跑
+   `scripts/fetch-apod.mjs`：抓「台灣的昨天」那張（一律帶明確日期，
+   no-date 路由會間歇 500）、sharp 壓成寬 1600 JPEG、縮 32×32 算亮度
+2. 亮度用 **p75**（75 百分位）不用平均——天文圖常是「大片黑天＋局部亮區」，
+   平均會低估亮區對文字的殺傷力
+3. 產出 `public/apod.{json,jpg}` 進 build：圖片同源、進 SW precache，離線可用
+4. 前端讀 `apod.json`：`p75 > .52` 掛 `.photo-light`（黑字＋白霧遮罩），
+   否則白字＋深色遮罩、深度隨 p75 加深
+5. `apod.json` 不存在時（本機沒跑腳本、CI 抓圖失敗）退回 client 直打 API，
+   一律當暗圖處理
+
+金鑰：CI 用 repo secret `NASA_API_KEY`；本機備援路徑用 `.env.local` 的
+`VITE_NASA_API_KEY`（`*.local` 已被 gitignore）。主路徑下前端完全不碰
+NASA API，金鑰不會進部署後的 bundle。
+
+注意：GitHub 對 60 天沒有 commit 活動的 repo 會自動停用排程 workflow，
+收到通知信去 Actions 頁按一下重新啟用（或推任何 commit）即可。
 
 ## 資料存在哪、會不會被清掉
 

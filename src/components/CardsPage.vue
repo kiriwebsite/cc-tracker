@@ -12,7 +12,9 @@ const rows = computed(() => {
   return store.cards.map((card) => ({
     card,
     monthAmt: list.filter((e) => e.cardId === card.id).reduce((a, e) => a + e.amount, 0),
-    gradient: `linear-gradient(140deg, ${card.color}, ${shade(card.color, -28)})`,
+    style: card.image
+      ? { backgroundImage: `url(${card.image})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: card.color }
+      : { background: `linear-gradient(140deg, ${card.color}, ${shade(card.color, -28)})` },
   }))
 })
 </script>
@@ -28,7 +30,8 @@ const rows = computed(() => {
       :key="r.card.id"
       type="button"
       class="cc"
-      :style="{ background: r.gradient }"
+      :class="{ 'has-img': r.card.image }"
+      :style="r.style"
       @click="$emit('edit', r.card.id)"
     >
       <div class="cc-name">{{ r.card.name }}</div>

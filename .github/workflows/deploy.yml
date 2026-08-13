@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # 台灣 00:10（16:10 UTC）：抓「台灣的昨天」那張 APOD 重新部署，
+    # 使用者在台灣午夜後看到的就是新圖
+    - cron: '10 16 * * *'
 
 # GITHUB_TOKEN 只給部署 Pages 需要的最小權限
 permissions:
@@ -29,7 +33,16 @@ jobs:
 
       - run: npm ci
 
+      # 抓當日 APOD＋亮度分析，產出 public/apod.{json,jpg} 讓 build 帶走。
+      # 失敗只會 console.warn，不會弄掛部署（前端有 client 端備援路徑）
+      - run: node scripts/fetch-apod.mjs
+        env:
+          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+
+      # 用 client 端備援時才需要 VITE_ 這把 key；正常情況前端根本不打 NASA API
       - run: npm run build
+        env:
+          VITE_NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
 
       - uses: actions/configure-pages@v5
 

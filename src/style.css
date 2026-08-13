@@ -1,34 +1,24 @@
 /* ── 主題變數 ───────────────────────────────── */
+/* 時尚淺色主題。紀律：近白底、純白卡、近黑字、黑 accent、
+   超柔陰影、大圓角，全 app 唯一的強對比是近黑的 dock。
+   沒有光暈、沒有漸層文字、沒有玻璃 inset ——克制就是時尚。
+   對比驗過：--text 16:1、--text-dim 4.9:1（對白色表面）。 */
 :root {
-  --bg: #f2f2f7;
+  color-scheme: light;
+  --bg: #f3f4f6;
   --surface: #ffffff;
-  --surface-2: #ffffff;
-  --text: #11111a;
-  --text-dim: #6b6b78;
-  --line: rgba(0, 0, 0, .08);
-  --accent: #4f46e5;
-  --accent-soft: rgba(79, 70, 229, .1);
-  --danger: #e5484d;
-  --shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .05);
-  --radius: 16px;
-  --tabbar-h: 58px;
+  --surface-2: #eef0f3;
+  --text: #17181c;
+  --text-dim: #6b7280;
+  --line: rgba(17, 24, 39, .08);
+  --accent: #17181c;
+  --accent-soft: rgba(17, 24, 39, .06);
+  --danger: #d92d20;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px rgba(16, 24, 40, .06);
+  --radius: 20px;
+  --tabbar-h: 64px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b0b12;
-    --surface: #17171f;
-    --surface-2: #1e1e28;
-    --text: #f2f2f7;
-    --text-dim: #8e8e9a;
-    --line: rgba(255, 255, 255, .09);
-    --accent: #7c74ff;
-    --accent-soft: rgba(124, 116, 255, .16);
-    --danger: #ff6369;
-    --shadow: 0 1px 3px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
-  }
 }
 
 /* ── 基礎 ───────────────────────────────────── */
@@ -66,7 +56,7 @@ input { font-size: 16px; }
    離場才用 transition —— 沒跑就是直接消失，不影響可見性。 */
 
 .page {
-  padding: 0 16px;
+  padding: 0 30px;
   animation: page-in .22s ease;
 }
 @keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
@@ -81,22 +71,17 @@ input { font-size: 16px; }
 .toast { animation: toast-in .25s cubic-bezier(.22, 1, .36, 1); }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 12px); } }
 
-.pad-bottom { height: calc(var(--tabbar-h) + var(--safe-b) + 28px); }
+/* dock 懸浮離底 12px，內容要多留這段才不會被蓋住 */
+.pad-bottom { height: calc(var(--tabbar-h) + var(--safe-b) + 40px); }
 
 /* ── 頁首 ───────────────────────────────────── */
+/* 頁首不是 bar：無底色、不 sticky，文字直接浮在底圖上、跟內容一起捲動 */
 .top {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
   padding: 14px 0 6px;
-  position: sticky;
-  top: 0;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  z-index: 5;
-  margin: 0 -16px;
 }
 
 .top h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
@@ -188,24 +173,46 @@ input { font-size: 16px; }
 /* ── 明細 ───────────────────────────────────── */
 .filter-row {
   display: flex;
-  gap: 8px;
-  overflow-x: auto;
   padding: 10px 0 4px;
-  scrollbar-width: none;
 }
-.filter-row::-webkit-scrollbar { display: none; }
 
-.f-chip {
-  flex: none;
-  padding: 7px 14px;
+/* 卡片篩選：原生 select 包在藥丸裡（iOS 會跳系統選單，比橫捲 chips 好按）。
+   chevron 畫在 wrapper 的 ::after，select 自己 appearance: none */
+.select-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   border-radius: 999px;
   background: var(--surface);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-dim);
   box-shadow: var(--shadow);
 }
-.f-chip.on { background: var(--accent); color: #fff; }
+.select-pill::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  width: 9px; height: 9px;
+  border-right: 1.8px solid var(--text-dim);
+  border-bottom: 1.8px solid var(--text-dim);
+  transform: translateY(-2px) rotate(45deg);
+  pointer-events: none;
+}
+.select-pill select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: none;
+  /* 16px 以下 iOS 聚焦時會放大整頁 */
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 9px 38px 9px 16px;
+  border-radius: 999px;
+  outline: none;
+  max-width: 60vw;
+  text-overflow: ellipsis;
+}
+/* 展開的選項清單走系統 UI，得自己給不透明底色（select 本體是玻璃） */
+.select-pill option { color: #17181c; background: #fff; }
 
 .day-group { margin-top: 16px; }
 .day-head {
@@ -217,11 +224,11 @@ input { font-size: 16px; }
   font-variant-numeric: tabular-nums;
 }
 
+/* 每筆消費一張獨立卡片，用間距分開（不再黏成一塊） */
 .expense-list .items {
-  background: var(--surface);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .ex-row {
@@ -231,9 +238,10 @@ input { font-size: 16px; }
   padding: 12px 14px;
   width: 100%;
   text-align: left;
-  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
 }
-.ex-row:last-child { border-bottom: none; }
 .ex-row:active { background: var(--accent-soft); }
 
 .ex-ico {
@@ -274,6 +282,21 @@ input { font-size: 16px; }
   pointer-events: none;
 }
 .cc:active { transform: scale(.985); }
+
+/* 自訂卡面圖片：文字墊在 z-index 1，
+   深色漸層鋪在圖片上、文字下，任何圖片上字都讀得清楚 */
+.cc > *, .card-preview > * { position: relative; z-index: 1; }
+.cc::after { z-index: 0; }
+.cc.has-img, .card-preview.has-img { text-shadow: 0 1px 3px rgba(8, 16, 26, .55); }
+.cc.has-img::after,
+.card-preview.has-img::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(12, 24, 38, .38), rgba(12, 24, 38, .14) 46%, rgba(12, 24, 38, .52));
+  pointer-events: none;
+}
 .cc-name { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
 .cc-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
 .cc-last4 { font-size: 15px; letter-spacing: .12em; opacity: .92; font-variant-numeric: tabular-nums; }
@@ -284,7 +307,7 @@ input { font-size: 16px; }
   width: 100%;
   margin-top: 14px;
   padding: 15px;
-  border-radius: var(--radius);
+  border-radius: 999px;
   background: var(--surface);
   color: var(--accent);
   font-size: 16px;
@@ -333,30 +356,49 @@ input { font-size: 16px; }
 .hint.warn { color: var(--danger); }
 .hint:empty { display: none; }
 
-/* ── 底部導覽 ───────────────────────────────── */
+/* ── 底部導覽：懸浮深色玻璃 dock ─────────────── */
 .tabbar {
   position: fixed;
-  left: 0; right: 0; bottom: 0;
-  height: calc(var(--tabbar-h) + var(--safe-b));
-  padding-bottom: var(--safe-b);
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--safe-b) + 12px);
+  width: min(calc(100% - 32px), 400px);
+  height: var(--tabbar-h);
+  padding: 0 10px;
   display: flex;
-  align-items: stretch;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  border-top: 1px solid var(--line);
+  align-items: center;
+  border-radius: 999px;
+  /* 白霧玻璃 dock：brightness>1 把滑過的內容「洗白」而不是壓暗，
+     黑 icon 因此在任何背景上都讀得清。列表玻璃用同一配方 */
+  background: rgba(255, 255, 255, .4);
+  backdrop-filter: blur(10px) saturate(180%) brightness(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(180%) brightness(1.2);
+  border: 1px solid rgba(255, 255, 255, .10);
+  box-shadow:
+    0 12px 32px rgba(16, 24, 40, .18),
+    inset 0 1px 0 rgba(255, 255, 255, .18);
+  /* 液滴過衝或拉長時夾在 bar 裡，不會跑出去 */
+  overflow: hidden;
   z-index: 40;
+}
+
+/* 斜角反光：一道光斜打在玻璃面上，貼著表面、不外暈 */
+.tabbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, .12), transparent 38%);
 }
 
 .tab {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  color: var(--text-dim);
-  font-size: 10px;
+  height: 100%;
+  color: rgba(0, 0, 0, .5);
   transition: color .15s;
 }
 .tab svg {
@@ -364,30 +406,59 @@ input { font-size: 16px; }
   fill: none; stroke: currentColor;
   stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
 }
-.tab.active { color: var(--accent); }
+.tab.active { color: #000; }
 
-.fab-slot { width: 74px; position: relative; flex: none; }
-.fab {
+/* 液滴：玻璃鏡片——上緣反光、往下漸淡，backdrop 提亮讓它「透光」。
+   位移用彈性曲線滑過去，移動中由 .moving 加上 squash 形變。 */
+.tab-blob {
   position: absolute;
-  left: 50%;
-  top: -18px;
-  transform: translateX(-50%);
+  left: 0;
+  top: 50%;
   width: 56px; height: 56px;
+  margin-top: -28px;
   border-radius: 50%;
-  background: linear-gradient(140deg, #6366f1, #8b5cf6);
-  color: #fff;
-  font-size: 30px;
-  font-weight: 300;
-  line-height: 52px;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, .45);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .10));
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .30);
+  backdrop-filter: blur(4px) brightness(1.18);
+  -webkit-backdrop-filter: blur(4px) brightness(1.18);
+  transition: transform .45s cubic-bezier(.3, 1.18, .35, 1);
+  pointer-events: none;
 }
-.fab:active { transform: translateX(-50%) scale(.92); }
+/* 移動中：橫向拉長、直向壓扁——玻璃珠被拖著走的形變。
+   scale 用獨立屬性，才不會蓋掉 transform 裡的 translateX 定位。
+   液滴放大到近 bar 高後，過衝與拉伸都收斂一點，大顆珠子甩太用力會吵 */
+.tab-blob.moving { animation: blob-squash .45s cubic-bezier(.3, 1.18, .35, 1); }
+/* 0%/100% 要明確寫：scale 基底值是 none，從 none 插值是未定義行為，
+   缺了這兩格整段動畫會不動 */
+@keyframes blob-squash {
+  0%, 100% { scale: 1 1; }
+  40% { scale: 1.24 .86; }
+}
+
+/* icon 與 ＋ 墊在液滴上面 */
+.tabbar .tab, .tabbar .fab { position: relative; z-index: 1; }
+
+/* ＋：白色圓鈕、黑色符號——dock 上最亮的東西就是主要動作 */
+.fab {
+  flex: none;
+  width: 56px; height: 56px;
+  margin: 0 4px;
+  border-radius: 50%;
+  background: #fff;
+  color: #17181c;
+  font-size: 26px;
+  font-weight: 400;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+}
+.fab:active { transform: scale(.92); }
 
 /* ── 底部面板 ───────────────────────────────── */
 .sheet-wrap { position: fixed; inset: 0; z-index: 100; }
 .backdrop {
   position: absolute; inset: 0;
-  background: rgba(0, 0, 0, .45);
+  background: rgba(0, 0, 0, .4);
 }
 
 .sheet {
@@ -439,7 +510,7 @@ input { font-size: 16px; }
   padding: 0;
   font-variant-numeric: tabular-nums;
 }
-.amount-input input::placeholder { color: var(--line); }
+.amount-input input::placeholder { color: rgba(107, 114, 128, .35); }
 
 .err {
   color: var(--danger);
@@ -504,6 +575,8 @@ input { font-size: 16px; }
 .two-col input:focus { border-color: var(--accent); }
 
 .card-preview {
+  position: relative;
+  overflow: hidden;
   height: 96px;
   border-radius: 16px;
   margin-top: 12px;
@@ -512,11 +585,25 @@ input { font-size: 16px; }
   flex-direction: column;
   justify-content: space-between;
   color: #fff;
-  background: linear-gradient(140deg, #6366f1, #8b5cf6);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
+  background: linear-gradient(140deg, #2b2d33, #17181c);
+  box-shadow: 0 6px 18px rgba(16, 24, 40, .18);
 }
 .cp-name { font-size: 17px; font-weight: 700; }
 .cp-last4 { font-size: 15px; letter-spacing: .12em; opacity: .9; }
+
+.img-row { display: flex; gap: 10px; }
+.btn-lite {
+  flex: 1;
+  padding: 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+.btn-lite:active { background: var(--accent-soft); }
+.btn-lite.danger { color: var(--danger); }
 
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
 .sw {
@@ -531,7 +618,7 @@ input { font-size: 16px; }
   width: 100%;
   margin-top: 26px;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--surface);
   color: var(--danger);
   font-size: 15px;
@@ -545,17 +632,169 @@ input { font-size: 16px; }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 24px);
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 34px);
   transform: translateX(-50%);
-  background: #1c1c22;
+  background: #17181c;
   color: #fff;
   padding: 11px 20px;
   border-radius: 999px;
   font-size: 14px;
   z-index: 200;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .25);
   max-width: 84vw;
   text-align: center;
+}
+
+/* ── NASA 星空背景（APOD）───────────────────── */
+/* useApod.js 抓到圖後在 body 掛 .has-photo 和 --photo 變數。
+   圖鋪在 fixed 偽元素上（iOS 對 background-attachment: fixed 支援爛），
+   疊一層暗化漸層保護可讀性——這是遮罩不是光效 */
+
+/* body 自己的背景會蓋掉 z-index:-1 的偽元素（painting order：
+   canvas → 負 z-index → 區塊背景），照片模式要讓它透明，
+   底色 fallback 交給 html 的背景 */
+body.has-photo { background: transparent; }
+
+body.has-photo::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  /* 遮罩深淺由 useApod 依偵測結果設定；預設值給備援路徑用 */
+  background-image:
+    linear-gradient(var(--scrim-1, rgba(10, 12, 18, .38)), var(--scrim-2, rgba(10, 12, 18, .52))),
+    var(--photo);
+  background-size: cover;
+  background-position: center;
+}
+
+/* 照片模式：直接坐在背景上的文字轉白（卡片內維持深字白底不動）。
+   淡淡的 text-shadow 是在亮部星雲上保命用的，不是光暈 */
+.has-photo .top h1,
+.has-photo .mo-label,
+.has-photo .mo-nav,
+.has-photo .total-amount { color: #fff; }
+.has-photo .total-label,
+.has-photo .total-sub,
+.has-photo .section-title,
+.has-photo .day-head,
+.has-photo .empty { color: rgba(255, 255, 255, .82); }
+.has-photo .hint { color: rgba(255, 255, 255, .72); }
+.has-photo .hint.warn { color: #ff8a8f; }
+/* 萬用字影：緊貼的深色描邊陰影（擴散 2px 內，不是光暈）。
+   APOD 圖片主機擋 CORS 讀不了像素、做不了亮度偵測，
+   這招讓白字在亮色地景上也保底可讀 */
+.has-photo .top h1,
+.has-photo .mo-label,
+.has-photo .mo-nav,
+.has-photo .total-label,
+.has-photo .total-sub,
+.has-photo .total-amount,
+.has-photo .section-title,
+.has-photo .day-head,
+.has-photo .empty,
+.has-photo .hint {
+  text-shadow: 0 1px 2px rgba(8, 12, 20, .65), 0 0 2px rgba(8, 12, 20, .5);
+}
+
+/* ── 照片模式的玻璃：全站同一配方，亮暗圖都不換（使用者指定）──
+   只有文字顏色隨 CI 偵測結果切黑白 */
+.has-photo .cs-item,
+.has-photo .cat-row,
+.has-photo .ex-row,
+.has-photo .settings-group,
+.has-photo .select-pill,
+.has-photo .btn-block,
+.has-photo .tabbar {
+  background: rgba(255, 255, 255, .2);
+  backdrop-filter: blur(3px) saturate(170%) brightness(.9);
+  -webkit-backdrop-filter: blur(3px) saturate(170%) brightness(.9);
+  border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, .18),
+    inset 0 1px 0 rgba(255, 255, 255, .28);
+}
+
+/* 玻璃卡片內的主要文字 */
+.has-photo .cs-name,
+.has-photo .cs-amt,
+.has-photo .cat-name,
+.has-photo .cat-amt,
+.has-photo .ex-cat,
+.has-photo .ex-amt,
+.has-photo .row-btn,
+.has-photo .btn-block,
+.has-photo .select-pill select { color: #fff; }
+
+/* 次要文字用降透明度的白，不要用灰——灰在半透明玻璃上會糊掉 */
+.has-photo .cs-meta,
+.has-photo .cat-pct,
+.has-photo .ex-sub,
+.has-photo .chev,
+.has-photo .inline-input { color: rgba(255, 255, 255, .7); }
+
+.has-photo .row-btn.danger { color: #ff7b80; }
+
+.has-photo .select-pill::after {
+  border-right-color: rgba(255, 255, 255, .7);
+  border-bottom-color: rgba(255, 255, 255, .7);
+}
+
+/* dock 的 icon 跟著轉白 */
+.has-photo .tab { color: rgba(255, 255, 255, .6); }
+.has-photo .tab.active { color: #fff; }
+
+/* ── 亮色照片模式（CI 偵測 p75 > .52 時掛 .photo-light）──
+   玻璃不動，只把文字整組翻成深色：亮圖上白字會消失。
+   .photo-light 與 .has-photo 同特異性、寫在後面，所以覆蓋得掉 */
+.photo-light .cs-name,
+.photo-light .cs-amt,
+.photo-light .cat-name,
+.photo-light .cat-amt,
+.photo-light .ex-cat,
+.photo-light .ex-amt,
+.photo-light .row-btn { color: var(--text); }
+.photo-light .btn-block,
+.photo-light .select-pill select { color: var(--accent); }
+
+.photo-light .cs-meta,
+.photo-light .cat-pct,
+.photo-light .ex-sub,
+.photo-light .chev,
+.photo-light .inline-input { color: #414a57; }
+
+.photo-light .row-btn.danger { color: var(--danger); }
+
+.photo-light .select-pill::after {
+  border-right-color: #414a57;
+  border-bottom-color: #414a57;
+}
+
+.photo-light .tab { color: rgba(0, 0, 0, .5); }
+.photo-light .tab.active { color: #000; }
+
+.photo-light .top h1,
+.photo-light .mo-label,
+.photo-light .mo-nav,
+.photo-light .total-amount { color: var(--text); }
+.photo-light .total-label,
+.photo-light .total-sub,
+.photo-light .section-title,
+.photo-light .day-head,
+.photo-light .empty { color: rgba(23, 24, 28, .78); }
+.photo-light .hint { color: rgba(23, 24, 28, .62); }
+.photo-light .hint.warn { color: var(--danger); }
+.photo-light .top h1,
+.photo-light .mo-label,
+.photo-light .mo-nav,
+.photo-light .total-label,
+.photo-light .total-sub,
+.photo-light .total-amount,
+.photo-light .section-title,
+.photo-light .day-head,
+.photo-light .empty,
+.photo-light .hint {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, .6), 0 0 2px rgba(255, 255, 255, .5);
 }
 
 @media (prefers-reduced-motion: reduce) {
