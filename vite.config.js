@@ -13,7 +13,7 @@ export default defineConfig({
       // 每次 build 由 workbox 產生新的 precache 清單並自動更新，
       // 不用再手動 bump service worker 版本。
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png'],
+      includeAssets: ['icons/*.png', 'icons/*.svg'],
 
       manifest: {
         name: '刷卡記帳',
@@ -36,7 +36,7 @@ export default defineConfig({
 
       workbox: {
         // jpg/json 是每日 APOD 背景（CI 產生），進 precache 才能離線顯示
-        globPatterns: ['**/*.{js,css,html,png,jpg,json,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,png,jpg,svg,json,webmanifest}'],
         cleanupOutdatedCaches: true,
         // APOD 星空圖抓過一次就進快取，離線也有背景可看
         runtimeCaching: [
