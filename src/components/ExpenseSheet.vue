@@ -3,7 +3,6 @@ import { ref, watch, computed, nextTick } from 'vue'
 import {
   store, money, addExpense, updateExpense, removeExpense, lastUsedCardId,
 } from '../composables/useStore'
-import { CATEGORIES } from '../data/categories'
 import { ymd, monthOf } from '../utils/date'
 import { toast } from '../composables/useToast'
 import BottomSheet from './BottomSheet.vue'
@@ -17,7 +16,7 @@ const emit = defineEmits(['close', 'saved'])
 
 const amount = ref('')
 const cardId = ref(null)
-const category = ref('food')
+const category = ref(null)
 const date = ref('')
 const note = ref('')
 const err = ref('')
@@ -35,7 +34,7 @@ watch(
     const e = editing.value
     amount.value = e ? String(e.amount) : ''
     cardId.value = e ? e.cardId : lastUsedCardId()
-    category.value = e ? e.category : 'food'
+    category.value = e ? e.category : store.categories[0]?.id ?? null
     date.value = e ? e.date : ymd(new Date())
     note.value = e ? e.note || '' : ''
     err.value = ''
@@ -124,7 +123,7 @@ function del() {
     <label class="field-label">分類</label>
     <div class="chip-row wrap">
       <button
-        v-for="c in CATEGORIES"
+        v-for="c in store.categories"
         :key="c.id"
         type="button"
         class="chip"

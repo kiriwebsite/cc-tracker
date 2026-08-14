@@ -4,6 +4,8 @@ import { watch, onUnmounted } from 'vue'
 const props = defineProps({
   open: { type: Boolean, default: false },
   title: { type: String, required: true },
+  // 選單類的面板沒有「儲存」這個動作：點了選項就關
+  hideSubmit: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'submit'])
@@ -42,7 +44,9 @@ onUnmounted(() => {
       <div class="sheet-head">
         <button type="button" class="sheet-cancel" @click="$emit('close')">取消</button>
         <h2>{{ title }}</h2>
-        <button type="submit" class="sheet-save">儲存</button>
+        <button v-if="!hideSubmit" type="submit" class="sheet-save">儲存</button>
+        <!-- 佔位讓標題保持置中 -->
+        <span v-else class="sheet-cancel" aria-hidden="true">&nbsp;</span>
       </div>
 
       <slot />

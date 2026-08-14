@@ -12,12 +12,14 @@ import CardsPage from './components/CardsPage.vue'
 import SettingsPage from './components/SettingsPage.vue'
 import ExpenseSheet from './components/ExpenseSheet.vue'
 import CardSheet from './components/CardSheet.vue'
+import CategorySheet from './components/CategorySheet.vue'
 
 const page = ref('summary')
 const month = ref(currentMonth())
 
 const expenseSheet = ref({ open: false, editId: null })
 const cardSheet = ref({ open: false, editId: null })
+const categorySheet = ref({ open: false, editId: null })
 
 function openExpense(editId = null) {
   if (!store.cards.length) {
@@ -56,7 +58,11 @@ watch(page, () => window.scrollTo(0, 0))
         @add="openCard(null)"
       />
 
-      <SettingsPage v-else />
+      <SettingsPage
+        v-else
+        @edit-category="categorySheet = { open: true, editId: $event }"
+        @add-category="categorySheet = { open: true, editId: null }"
+      />
 
       <div class="pad-bottom"></div>
     </section>
@@ -75,6 +81,12 @@ watch(page, () => window.scrollTo(0, 0))
     :open="cardSheet.open"
     :edit-id="cardSheet.editId"
     @close="cardSheet = { open: false, editId: null }"
+  />
+
+  <CategorySheet
+    :open="categorySheet.open"
+    :edit-id="categorySheet.editId"
+    @close="categorySheet = { open: false, editId: null }"
   />
 
   <!-- 同樣不用 Transition，理由見 BottomSheet -->

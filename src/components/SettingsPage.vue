@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import { store, serialize, applyImport, markBackedUp, wipeAll, backupFileName } from '../composables/useStore'
 import { toast } from '../composables/useToast'
 
+defineEmits(['edit-category', 'add-category'])
+
 const fileInput = ref(null)
 
 const backupStatus = computed(() => {
@@ -116,6 +118,22 @@ function confirmWipe() {
     資料只存在這支手機的瀏覽器裡，沒有雲端。清除瀏覽器資料或移除主畫面 App
     就會消失，記得定期匯出備份。
   </p>
+
+  <div class="section-title">分類</div>
+  <div class="settings-group">
+    <button
+      v-for="c in store.categories"
+      :key="c.id"
+      class="row-btn"
+      @click="$emit('edit-category', c.id)"
+    >
+      <span class="cat-row-label">
+        <span class="cat-emoji">{{ c.emoji }}</span>{{ c.name }}
+      </span>
+      <span class="chev">›</span>
+    </button>
+  </div>
+  <button class="btn-block" @click="$emit('add-category')">＋ 新增分類</button>
 
   <div class="section-title">顯示</div>
   <div class="settings-group">

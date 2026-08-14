@@ -35,7 +35,7 @@ src/
   main.js                  掛載 app、註冊 SW、申請持久化儲存
   App.vue                  分頁切換、兩個面板的開關狀態
   style.css                全站樣式（淺色主題、近黑 dock）
-  data/categories.js       分類與卡片配色常數
+  data/categories.js       預設分類、emoji 快選、卡片配色常數
   utils/date.js            日期格式化、月份位移、顏色深淺
   composables/
     useStore.js            單例 store + localStorage 持久化 + 所有 actions
@@ -50,6 +50,7 @@ src/
     BottomSheet.vue        底部面板外殼（含捲動鎖、Esc 關閉）
     ExpenseSheet.vue       記帳表單
     CardSheet.vue          卡片表單
+    CategorySheet.vue      分類表單（emoji + 名稱）
     EmptyState.vue         空狀態
 public/icons/              App 圖示
 legacy/                    改寫成 Vue 之前的原生 JS 版本，可以刪
@@ -93,6 +94,8 @@ iOS 只允許 **HTTPS** 網站加到主畫面並以 App 形式執行。先 `npm 
 2. 底部中間的 **＋** → 輸入金額 → 選卡、選分類 → 儲存
 3. 「總覽」看本月各卡小計與分類佔比，「明細」看每一筆
 4. 明細裡點任何一筆可以編輯或刪除
+5. 「設定」頁可自訂分類：改 emoji 與名稱、新增、刪除。刪掉分類**不會動到消費
+   紀錄**，那些紀錄會顯示為「📦 未分類」，金額照算
 5. 左右箭頭切換月份，點中間月份字樣跳回本月
 
 ## 星空背景（NASA APOD）＋亮度自適應

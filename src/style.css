@@ -155,7 +155,8 @@ input { font-size: 16px; }
   background: var(--surface); border-radius: 12px; padding: 10px 14px;
   box-shadow: var(--shadow);
 }
-.cat-emoji { font-size: 17px; }
+/* 跟明細的 .ex-ico 同尺寸，兩頁的分類圖示看起來才是同一套 */
+.cat-emoji { font-size: 20px; line-height: 1; }
 .cat-name { flex: 1; font-size: 14px; }
 .cat-amt { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .cat-pct { font-size: 12px; color: var(--text-dim); width: 38px; text-align: right; }
@@ -176,43 +177,69 @@ input { font-size: 16px; }
   padding: 10px 0 4px;
 }
 
-/* 卡片篩選：原生 select 包在藥丸裡（iOS 會跳系統選單，比橫捲 chips 好按）。
-   chevron 畫在 wrapper 的 ::after，select 自己 appearance: none */
+/* 卡片篩選：藥丸按鈕，點了從底部滑出選單（不用原生 select，
+   系統的下拉沒辦法配合這套視覺） */
 .select-pill {
-  position: relative;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
   border-radius: 999px;
   background: var(--surface);
   box-shadow: var(--shadow);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  max-width: 70vw;
 }
-.select-pill::after {
-  content: "";
-  position: absolute;
-  right: 14px;
-  width: 9px; height: 9px;
+.select-pill > span:first-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.select-caret {
+  flex: none;
+  width: 8px; height: 8px;
   border-right: 1.8px solid var(--text-dim);
   border-bottom: 1.8px solid var(--text-dim);
   transform: translateY(-2px) rotate(45deg);
-  pointer-events: none;
 }
-.select-pill select {
-  appearance: none;
-  -webkit-appearance: none;
-  border: none;
-  background: none;
-  /* 16px 以下 iOS 聚焦時會放大整頁 */
-  font-size: 16px;
-  font-weight: 600;
+
+/* 選單本體 */
+.opt-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  text-align: left;
+  font-size: 15px;
   color: var(--text);
-  padding: 9px 38px 9px 16px;
-  border-radius: 999px;
-  outline: none;
-  max-width: 60vw;
-  text-overflow: ellipsis;
 }
-/* 展開的選項清單走系統 UI，得自己給不透明底色（select 本體是玻璃） */
-.select-pill option { color: #17181c; background: #fff; }
+.opt-row.on { background: var(--accent-soft); font-weight: 600; }
+.opt-row:active { opacity: .7; }
+.opt-swatch {
+  flex: none;
+  width: 34px; height: 22px;
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+/* 「全部卡片」用漸層小卡示意，跟真的卡片區隔 */
+.opt-swatch.all {
+  background: linear-gradient(120deg, #9ca3af, #4b5563);
+  opacity: .55;
+}
+.opt-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.opt-last4 {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .06em;
+}
+.opt-check { color: var(--accent); font-weight: 700; }
 
 .day-group { margin-top: 16px; }
 .day-head {
@@ -244,10 +271,11 @@ input { font-size: 16px; }
 }
 .ex-row:active { background: var(--accent-soft); }
 
+/* 純 emoji，不加底色色塊——跟「分類佔比」的圖示一致 */
 .ex-ico {
-  width: 36px; height: 36px; border-radius: 10px;
-  display: grid; place-items: center;
-  font-size: 17px; flex: none;
+  font-size: 20px;
+  line-height: 1;
+  flex: none;
 }
 .ex-mid { flex: 1; min-width: 0; }
 .ex-cat { font-size: 15px; font-weight: 600; }
@@ -335,6 +363,7 @@ input { font-size: 16px; }
 .row-btn:last-child { border-bottom: none; }
 .row-btn:active { background: var(--accent-soft); }
 .row-btn.danger { color: var(--danger); }
+.cat-row-label { display: flex; align-items: center; gap: 10px; }
 .chev { color: var(--text-dim); font-size: 20px; line-height: 1; }
 
 .inline-input {
@@ -369,8 +398,8 @@ input { font-size: 16px; }
   align-items: center;
   border-radius: 999px;
   /* 白霧玻璃 dock：brightness>1 把滑過的內容「洗白」而不是壓暗，
-     黑 icon 因此在任何背景上都讀得清。列表玻璃用同一配方 */
-  background: rgba(255, 255, 255, .4);
+     黑 icon 因此在任何背景上都讀得清 */
+  background: rgba(255, 255, 255, .6);
   backdrop-filter: blur(10px) saturate(180%) brightness(1.2);
   -webkit-backdrop-filter: blur(10px) saturate(180%) brightness(1.2);
   border: 1px solid rgba(255, 255, 255, .10);
@@ -417,10 +446,8 @@ input { font-size: 16px; }
   width: 56px; height: 56px;
   margin-top: -28px;
   border-radius: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .10));
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .30);
-  backdrop-filter: blur(4px) brightness(1.18);
-  -webkit-backdrop-filter: blur(4px) brightness(1.18);
+  /* dock 底色偏白，液滴要用深色才看得見 */
+  background: rgba(0, 0, 0, .07);
   transition: transform .45s cubic-bezier(.3, 1.18, .35, 1);
   pointer-events: none;
 }
@@ -438,19 +465,18 @@ input { font-size: 16px; }
 /* icon 與 ＋ 墊在液滴上面 */
 .tabbar .tab, .tabbar .fab { position: relative; z-index: 1; }
 
-/* ＋：白色圓鈕、黑色符號——dock 上最亮的東西就是主要動作 */
+/* ＋：黑底白符號——dock 上唯一的深色塊，主要動作一眼可見 */
 .fab {
   flex: none;
   width: 56px; height: 56px;
   margin: 0 4px;
   border-radius: 50%;
-  background: #fff;
-  color: #17181c;
+  background: #17181c;
+  color: #fff;
   font-size: 26px;
   font-weight: 400;
   display: grid;
   place-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
 }
 .fab:active { transform: scale(.92); }
 
@@ -605,6 +631,35 @@ input { font-size: 16px; }
 .btn-lite:active { background: var(--accent-soft); }
 .btn-lite.danger { color: var(--danger); }
 
+/* 分類編輯：預覽條 + emoji 快選格 */
+.cat-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.cat-preview-emoji { font-size: 26px; line-height: 1; }
+.cat-preview-name { font-size: 16px; font-weight: 600; }
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+.emoji-cell {
+  aspect-ratio: 1;
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  background: var(--surface);
+}
+.emoji-cell.on { border-color: var(--accent); background: var(--accent-soft); }
+
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
 .sw {
   width: 40px; height: 40px;
@@ -704,8 +759,7 @@ body.has-photo::before {
 .has-photo .ex-row,
 .has-photo .settings-group,
 .has-photo .select-pill,
-.has-photo .btn-block,
-.has-photo .tabbar {
+.has-photo .btn-block {
   background: rgba(255, 255, 255, .2);
   backdrop-filter: blur(3px) saturate(170%) brightness(.9);
   -webkit-backdrop-filter: blur(3px) saturate(170%) brightness(.9);
@@ -722,9 +776,11 @@ body.has-photo::before {
 .has-photo .cat-amt,
 .has-photo .ex-cat,
 .has-photo .ex-amt,
+/* 注意：只列「直接坐在照片上」的元素。
+   BottomSheet 裡的東西（.opt-row 等）背景是不透明淺色，套白字會消失 */
 .has-photo .row-btn,
 .has-photo .btn-block,
-.has-photo .select-pill select { color: #fff; }
+.has-photo .select-pill { color: #fff; }
 
 /* 次要文字用降透明度的白，不要用灰——灰在半透明玻璃上會糊掉 */
 .has-photo .cs-meta,
@@ -735,14 +791,13 @@ body.has-photo::before {
 
 .has-photo .row-btn.danger { color: #ff7b80; }
 
-.has-photo .select-pill::after {
+.has-photo .select-caret {
   border-right-color: rgba(255, 255, 255, .7);
   border-bottom-color: rgba(255, 255, 255, .7);
 }
 
-/* dock 的 icon 跟著轉白 */
-.has-photo .tab { color: rgba(255, 255, 255, .6); }
-.has-photo .tab.active { color: #fff; }
+/* dock 不跟著底圖切色：底夠白，icon 一律黑（見 .tabbar 基礎規則） */
+
 
 /* ── 亮色照片模式（CI 偵測 p75 > .52 時掛 .photo-light）──
    玻璃不動，只把文字整組翻成深色：亮圖上白字會消失。
@@ -755,7 +810,7 @@ body.has-photo::before {
 .photo-light .ex-amt,
 .photo-light .row-btn { color: var(--text); }
 .photo-light .btn-block,
-.photo-light .select-pill select { color: var(--accent); }
+.photo-light .select-pill { color: var(--text); }
 
 .photo-light .cs-meta,
 .photo-light .cat-pct,
@@ -765,13 +820,12 @@ body.has-photo::before {
 
 .photo-light .row-btn.danger { color: var(--danger); }
 
-.photo-light .select-pill::after {
+.photo-light .select-caret {
   border-right-color: #414a57;
   border-bottom-color: #414a57;
 }
 
-.photo-light .tab { color: rgba(0, 0, 0, .5); }
-.photo-light .tab.active { color: #000; }
+
 
 .photo-light .top h1,
 .photo-light .mo-label,

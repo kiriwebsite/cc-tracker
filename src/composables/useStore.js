@@ -1,9 +1,22 @@
 import { reactive, watch } from 'vue'
 import { ymd, monthOf } from '../utils/date'
+import { DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from '../data/categories'
 
 const KEY = 'cc-tracker-v1'
 
-const emptyState = () => ({ cards: [], expenses: [], currency: '$', lastBackupAt: null })
+const defaultCategories = () => DEFAULT_CATEGORIES.map((c) => ({ ...c }))
+
+const emptyState = () => ({
+  cards: [],
+  expenses: [],
+  categories: defaultCategories(),
+  currency: '$',
+  lastBackupAt: null,
+})
+
+/** 沒有 categories 的舊資料補上預設——id 沿用 food/transport…，既有消費對得回去 */
+const readCategories = (v) =>
+  Array.isArray(v) && v.length ? v.filter((c) => c && c.id && c.name) : defaultCategories()
 
 function load() {
   try {
@@ -13,6 +26,7 @@ function load() {
     return {
       cards: Array.isArray(p.cards) ? p.cards : [],
       expenses: Array.isArray(p.expenses) ? p.expenses : [],
+      categories: readCategories(p.categories),
       currency: typeof p.currency === 'string' && p.currency ? p.currency : '$',
       lastBackupAt: typeof p.lastBackupAt === 'number' ? p.lastBackupAt : null,
     }
@@ -60,6 +74,26 @@ export function removeCard(id) {
   store.cards = store.cards.filter((c) => c.id !== id)
 }
 
+/* ── 分類 ─────────────────────────────────── */
+
+export function addCategory({ name, emoji }) {
+  store.categories.push({ id: uid(), name, emoji })
+}
+
+export function updateCategory(id, patch) {
+  const c = store.categories.find((x) => x.id === id)
+  if (c) Object.assign(c, patch)
+}
+
+/** 刪分類不動消費資料：那些紀錄的 category 找不到對應，會顯示成「未分類」 */
+export function removeCategory(id) {
+  store.categories = store.categories.filter((c) => c.id !== id)
+}
+
+export const catOf = (id) => store.categories.find((c) => c.id === id) || FALLBACK_CATEGORY
+
+export const countByCategory = (id) => store.expenses.filter((e) => e.category === id).length
+
 /* ── 消費 ─────────────────────────────────── */
 
 export function addExpense(data) {
@@ -105,6 +139,8 @@ export function applyImport(parsed) {
   }
   store.cards = parsed.cards
   store.expenses = parsed.expenses
+  // 舊版備份沒有 categories，補預設
+  store.categories = readCategories(parsed.categories)
   store.currency = typeof parsed.currency === 'string' && parsed.currency ? parsed.currency : '$'
   store.lastBackupAt = typeof parsed.lastBackupAt === 'number' ? parsed.lastBackupAt : null
 }

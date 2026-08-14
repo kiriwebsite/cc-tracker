@@ -20,7 +20,12 @@ const targetDate = () => {
 
 function apply(url) {
   if (!url) return
-  document.body.style.setProperty('--photo', `url("${url}")`)
+  // 一定要先解析成絕對 URL：--photo 雖然設在 body 的 inline style，
+  // 但 url() 是在「使用它的樣式表」裡解析的，相對路徑會變成
+  // /assets/apod.jpg（style.css 的位置）而 404。dev server 的 CSS
+  // 在根路徑所以看不出來，只有 build 後會壞。
+  const abs = new URL(url, document.baseURI).href
+  document.body.style.setProperty('--photo', `url("${abs}")`)
   document.body.classList.add('has-photo')
 }
 

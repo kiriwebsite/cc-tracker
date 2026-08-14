@@ -1,14 +1,26 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { store, money, expensesOfMonth } from '../composables/useStore'
-import { catOf } from '../data/categories'
+import { store, money, expensesOfMonth, catOf } from '../composables/useStore'
 import { dayLabel } from '../utils/date'
 import EmptyState from './EmptyState.vue'
+import BottomSheet from './BottomSheet.vue'
 
 const props = defineProps({ month: { type: String, required: true } })
 defineEmits(['edit'])
 
 const filterCard = ref('all')
+const pickerOpen = ref(false)
+
+const filterLabel = computed(() =>
+  filterCard.value === 'all'
+    ? '全部卡片'
+    : store.cards.find((c) => c.id === filterCard.value)?.name ?? '全部卡片',
+)
+
+function pick(id) {
+  filterCard.value = id
+  pickerOpen.value = false
+}
 
 // 卡被刪掉時，篩選條件跟著回到「全部」，免得列表永遠是空的
 watch(
@@ -49,7 +61,6 @@ const days = computed(() => {
             ...e,
             cat,
             cardName: card ? card.name : '（已刪除的卡）',
-            tint: (card ? card.color : '#94a3b8') + '22',
           }
         }),
       }
@@ -59,13 +70,55 @@ const days = computed(() => {
 
 <template>
   <div class="filter-row">
-    <div class="select-pill">
-      <select v-model="filterCard" aria-label="依卡片篩選">
-        <option value="all">全部卡片</option>
-        <option v-for="c in store.cards" :key="c.id" :value="c.id">{{ c.name }}</option>
-      </select>
-    </div>
+    <button
+      type="button"
+      class="select-pill"
+      aria-haspopup="listbox"
+      :aria-expanded="pickerOpen"
+      @click="pickerOpen = true"
+    >
+      <span>{{ filterLabel }}</span>
+      <span class="select-caret"></span>
+    </button>
   </div>
+
+  <BottomSheet :open="pickerOpen" title="依卡片篩選" hide-submit @close="pickerOpen = false">
+    <div class="opt-list" role="listbox">
+      <button
+        type="button"
+        class="opt-row"
+        :class="{ on: filterCard === 'all' }"
+        role="option"
+        :aria-selected="filterCard === 'all'"
+        @click="pick('all')"
+      >
+        <span class="opt-swatch all"></span>
+        <span class="opt-name">全部卡片</span>
+        <span v-if="filterCard === 'all'" class="opt-check">✓</span>
+      </button>
+
+      <button
+        v-for="c in store.cards"
+        :key="c.id"
+        type="button"
+        class="opt-row"
+        :class="{ on: filterCard === c.id }"
+        role="option"
+        :aria-selected="filterCard === c.id"
+        @click="pick(c.id)"
+      >
+        <span
+          class="opt-swatch"
+          :style="c.image
+            ? { backgroundImage: `url(${c.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+            : { background: c.color }"
+        ></span>
+        <span class="opt-name">{{ c.name }}</span>
+        <span v-if="c.last4" class="opt-last4">•••• {{ c.last4 }}</span>
+        <span v-if="filterCard === c.id" class="opt-check">✓</span>
+      </button>
+    </div>
+  </BottomSheet>
 
   <EmptyState
     v-if="!list.length"
@@ -89,7 +142,7 @@ const days = computed(() => {
           class="ex-row"
           @click="$emit('edit', e.id)"
         >
-          <div class="ex-ico" :style="{ background: e.tint }">{{ e.cat.emoji }}</div>
+          <div class="ex-ico">{{ e.cat.emoji }}</div>
 
           <div class="ex-mid">
             <div class="ex-cat">{{ e.note || e.cat.name }}</div>

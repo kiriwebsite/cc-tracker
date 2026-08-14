@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { store, money, expensesOfMonth } from '../composables/useStore'
-import { catOf } from '../data/categories'
+import { store, money, expensesOfMonth, catOf } from '../composables/useStore'
 import EmptyState from './EmptyState.vue'
 
 const props = defineProps({ month: { type: String, required: true } })
@@ -23,6 +22,10 @@ const cardRows = computed(() => {
     ...r,
     pct: total.value ? Math.round((r.amt / total.value) * 100) : 0,
     barWidth: (r.amt / max) * 100 + '%',
+    // 有上傳卡面就用圖當縮圖，沒有就用卡片顏色
+    dotStyle: r.card.image
+      ? { backgroundImage: `url(${r.card.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      : { background: r.card.color },
   }))
 })
 
@@ -63,7 +66,7 @@ const catRows = computed(() => {
 
   <div v-else class="card-summaries">
     <div v-for="r in cardRows" :key="r.card.id" class="cs-item">
-      <div class="cs-dot" :style="{ background: r.card.color }"></div>
+      <div class="cs-dot" :style="r.dotStyle"></div>
 
       <div class="cs-mid">
         <div class="cs-name">{{ r.card.name }}</div>
