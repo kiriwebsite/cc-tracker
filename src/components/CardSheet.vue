@@ -1,7 +1,8 @@
 <script setup>
 import { ref, watch, computed, nextTick } from 'vue'
-import { store, addCard, updateCard, removeCard } from '../composables/useStore'
+import { store, addCard, updateCard, removeCard, newRule } from '../composables/useStore'
 import { CARD_COLORS } from '../data/categories'
+import { CAP_TYPES, capLabel } from '../utils/rewards'
 import { shade } from '../utils/date'
 import { toast } from '../composables/useToast'
 import BottomSheet from './BottomSheet.vue'
@@ -17,6 +18,7 @@ const name = ref('')
 const last4 = ref('')
 const color = ref(CARD_COLORS[0])
 const image = ref(null)
+const rules = ref([])
 const err = ref('')
 const nameInput = ref(null)
 const fileInput = ref(null)
@@ -43,6 +45,8 @@ watch(
     last4.value = c ? c.last4 || '' : ''
     color.value = c ? c.color : CARD_COLORS[store.cards.length % CARD_COLORS.length]
     image.value = c ? c.image || null : null
+    // 深拷貝：面板裡改規則不該即時寫進 store，取消要能真的取消
+    rules.value = c ? JSON.parse(JSON.stringify(c.rules || [])) : []
     err.value = ''
 
     await nextTick()
@@ -60,6 +64,16 @@ function onLast4(ev) {
   if (ev.target.value !== v) ev.target.value = v
 }
 
+const addRuleRow = () => rules.value.push(newRule())
+const removeRuleRow = (id) => (rules.value = rules.value.filter((r) => r.id !== id))
+
+/** 分類多選：一條都不選＝一般消費（什麼分類都適用） */
+function toggleCat(rule, catId) {
+  const i = rule.categories.indexOf(catId)
+  if (i >= 0) rule.categories.splice(i, 1)
+  else rule.categories.push(catId)
+}
+
 function submit() {
   const n = name.value.trim()
   if (!n) {
@@ -68,7 +82,30 @@ function submit() {
     return
   }
 
-  const payload = { name: n, last4: last4.value.trim(), color: color.value, image: image.value }
+  // 規則寧可擋下來也不要存壞的：算錯回饋會讓人刷錯卡，比沒有這功能更糟
+  for (const [i, r] of rules.value.entries()) {
+    const rate = Number(r.rate)
+    if (!isFinite(rate) || rate <= 0 || rate > 100) {
+      err.value = `規則 ${i + 1}：回饋 % 要填 0～100 之間的數字`
+      return
+    }
+    if (r.capType !== 'none' && !(Number(r.capAmount) > 0)) {
+      err.value = `規則 ${i + 1}：選了上限類型就要填上限金額`
+      return
+    }
+  }
+
+  const payload = {
+    name: n,
+    last4: last4.value.trim(),
+    color: color.value,
+    image: image.value,
+    rules: rules.value.map((r) => ({
+      ...r,
+      rate: Number(r.rate),
+      capAmount: r.capType === 'none' ? 0 : Number(r.capAmount),
+    })),
+  }
 
   if (editing.value) {
     updateCard(props.editId, payload)
@@ -191,6 +228,93 @@ function del() {
         :aria-label="'顏色 ' + col"
         @click="color = col"
       ></button>
+    </div>
+
+    <div class="rules-head">
+      <label class="field-label">回饋規則</label>
+      <button type="button" class="btn-lite" @click="addRuleRow">＋ 加一條</button>
+    </div>
+
+    <p v-if="!rules.length" class="rules-empty">
+      沒設規則的卡，試算時不會被推薦。
+    </p>
+
+    <div v-for="(r, i) in rules" :key="r.id" class="rule-box">
+      <div class="rule-top">
+        <b>規則 {{ i + 1 }}</b>
+        <button type="button" class="rule-del" @click="removeRuleRow(r.id)">刪除</button>
+      </div>
+
+      <input
+        v-model="r.name"
+        type="text"
+        class="text-field"
+        placeholder="規則名稱（選填），例：網購 5%"
+        maxlength="20"
+        autocomplete="off"
+      />
+
+      <label class="field-label">適用分類（都不選＝一般消費）</label>
+      <div class="chip-row wrap">
+        <button
+          v-for="c in store.categories"
+          :key="c.id"
+          type="button"
+          class="chip"
+          :class="{ on: r.categories.includes(c.id) }"
+          @click="toggleCat(r, c.id)"
+        >
+          {{ c.emoji }} {{ c.name }}
+        </button>
+      </div>
+
+      <label class="field-label">回饋 %</label>
+      <input
+        v-model="r.rate"
+        type="text"
+        class="text-field"
+        inputmode="decimal"
+        placeholder="例：5"
+        autocomplete="off"
+      />
+
+      <label class="field-label">上限類型</label>
+      <div class="chip-row">
+        <button
+          v-for="t in CAP_TYPES"
+          :key="t.id"
+          type="button"
+          class="chip"
+          :class="{ on: r.capType === t.id }"
+          @click="r.capType = t.id"
+        >
+          {{ t.label }}
+        </button>
+      </div>
+
+      <template v-if="r.capType !== 'none'">
+        <label class="field-label">{{ capLabel(r.capType) }}</label>
+        <input
+          v-model="r.capAmount"
+          type="text"
+          class="text-field"
+          inputmode="numeric"
+          placeholder="例：500"
+          autocomplete="off"
+        />
+      </template>
+
+      <button
+        type="button"
+        class="toggle-row"
+        @click="r.excludeSmallPay = !r.excludeSmallPay"
+      >
+        <span class="toggle-box" :class="{ on: r.excludeSmallPay }">{{ r.excludeSmallPay ? '✓' : '' }}</span>
+        <span class="toggle-text">
+          排除小額支付
+          <em>電子票證加值、行動支付這類通路不給回饋</em>
+        </span>
+      </button>
     </div>
 
     <button v-if="editing" type="button" class="btn-delete" @click="del">刪除這張卡</button>

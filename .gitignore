@@ -7,3 +7,6 @@ dev-dist
 # CI 每天產生的 APOD 背景（scripts/fetch-apod.mjs），不進版控
 public/apod.json
 public/apod.jpg
+
+# 小額支付名單原始 PDF（6.8MB，抽完就存進 app，不需要進版控）
+/*.pdf

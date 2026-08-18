@@ -19,8 +19,12 @@ const cardId = ref(null)
 const category = ref(null)
 const date = ref('')
 const note = ref('')
+const merchant = ref('')
 const err = ref('')
 const amountInput = ref(null)
+
+// 算不算小額支付一律由使用者自己勾——名單只用來查，不用來替他判定
+const smallPay = ref(false)
 
 const editing = computed(() =>
   props.editId ? store.expenses.find((e) => e.id === props.editId) : null,
@@ -37,6 +41,8 @@ watch(
     category.value = e ? e.category : store.categories[0]?.id ?? null
     date.value = e ? e.date : ymd(new Date())
     note.value = e ? e.note || '' : ''
+    merchant.value = e ? e.merchant || '' : ''
+    smallPay.value = e ? e.smallPay === true : false
     err.value = ''
 
     // 等面板滑上來再聚焦，否則 iOS 鍵盤會把動畫卡住
@@ -62,6 +68,8 @@ function submit() {
     category: category.value,
     date: d,
     note: note.value.trim(),
+    merchant: merchant.value.trim(),
+    smallPay: smallPay.value,
   }
 
   if (editing.value) {
@@ -133,6 +141,25 @@ function del() {
         {{ c.emoji }} {{ c.name }}
       </button>
     </div>
+
+    <label class="field-label" for="exp-merchant">通路／商店（選填）</label>
+    <input
+      id="exp-merchant"
+      v-model="merchant"
+      type="text"
+      class="text-field"
+      placeholder="選填，記錄在哪刷的"
+      maxlength="40"
+      autocomplete="off"
+    />
+
+    <button type="button" class="toggle-row" @click="smallPay = !smallPay">
+      <span class="toggle-box" :class="{ on: smallPay }">{{ smallPay ? '✓' : '' }}</span>
+      <span class="toggle-text">
+        這筆算小額支付
+        <em>排除小額支付的規則不會給這筆回饋</em>
+      </span>
+    </button>
 
     <div class="two-col">
       <div>

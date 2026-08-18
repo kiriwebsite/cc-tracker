@@ -6,6 +6,7 @@ const page = defineModel({ type: String, required: true })
 defineEmits(['add'])
 
 const TABS = [
+  { id: 'simulate', label: '試算' },
   { id: 'summary', label: '總覽' },
   { id: 'list', label: '明細' },
   { id: 'cards', label: '卡片' },
@@ -67,7 +68,11 @@ onBeforeUnmount(() => window.removeEventListener('resize', onResize))
         :title="t.label"
         @click="page = t.id"
       >
-        <svg v-if="t.id === 'summary'" viewBox="0 0 24 24">
+        <!-- 試算＝回饋 %，用百分比符號 -->
+        <svg v-if="t.id === 'simulate'" viewBox="0 0 24 24">
+          <circle cx="7" cy="7" r="2.6" /><circle cx="17" cy="17" r="2.6" /><path d="M19 5L5 19" />
+        </svg>
+        <svg v-else-if="t.id === 'summary'" viewBox="0 0 24 24">
           <path d="M4 19V10M10 19V5M16 19v-6M22 19H2" />
         </svg>
         <svg v-else-if="t.id === 'list'" viewBox="0 0 24 24">

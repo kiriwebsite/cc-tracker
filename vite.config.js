@@ -6,6 +6,10 @@ export default defineConfig({
   // 相對路徑：丟到網域根目錄或子路徑（GitHub Pages）都能跑
   base: './',
 
+  // 平常就是 5173；預覽工具想指定 port 時透過 PORT 傳進來，
+  // 免得舊的 dev server 還佔著 5173 就啟不動
+  server: { port: Number(process.env.PORT) || 5173 },
+
   plugins: [
     vue(),
 
@@ -37,6 +41,9 @@ export default defineConfig({
       workbox: {
         // jpg/json 是每日 APOD 背景（CI 產生），進 precache 才能離線顯示
         globPatterns: ['**/*.{js,css,html,png,jpg,svg,json,webmanifest}'],
+        // pdf.js 只有匯入小額支付名單時才用得到（一季一次），
+        // 佔掉大半離線快取不划算——留給網路現抓。worker 是 .mjs，本來就不在上面的清單裡
+        globIgnores: ['**/pdf-*.js'],
         cleanupOutdatedCaches: true,
         // APOD 星空圖抓過一次就進快取，離線也有背景可看
         runtimeCaching: [

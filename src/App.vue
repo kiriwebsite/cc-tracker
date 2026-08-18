@@ -6,6 +6,7 @@ import { currentMonth } from './utils/date'
 
 import MonthNav from './components/MonthNav.vue'
 import TabBar from './components/TabBar.vue'
+import SimulatePage from './components/SimulatePage.vue'
 import SummaryPage from './components/SummaryPage.vue'
 import ListPage from './components/ListPage.vue'
 import CardsPage from './components/CardsPage.vue'
@@ -14,7 +15,8 @@ import ExpenseSheet from './components/ExpenseSheet.vue'
 import CardSheet from './components/CardSheet.vue'
 import CategorySheet from './components/CategorySheet.vue'
 
-const page = ref('summary')
+// 開起來就是試算：這個 app 的主要用途是刷卡前查該刷哪張，不是事後看報表
+const page = ref('simulate')
 const month = ref(currentMonth())
 
 const expenseSheet = ref({ open: false, editId: null })
@@ -41,7 +43,9 @@ watch(page, () => window.scrollTo(0, 0))
   <div class="app">
     <!-- :key 讓每次切頁都重掛一次，進場 animation 才會重播 -->
     <section :key="page" class="page">
-      <template v-if="page === 'summary'">
+      <SimulatePage v-if="page === 'simulate'" />
+
+      <template v-else-if="page === 'summary'">
         <MonthNav v-model="month" />
         <SummaryPage :month="month" />
       </template>

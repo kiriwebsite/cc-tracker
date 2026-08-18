@@ -1,6 +1,8 @@
 import { reactive, watch } from 'vue'
 import { ymd, monthOf } from '../utils/date'
 import { DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from '../data/categories'
+import { monthUsage, simulate, tightestStatus } from '../utils/rewards'
+import { normalizeChannel, matchKey } from '../utils/text'
 
 const KEY = 'cc-tracker-v1'
 
@@ -12,11 +14,63 @@ const emptyState = () => ({
   categories: defaultCategories(),
   currency: '$',
   lastBackupAt: null,
+  // 只放摘要；名單本體有上萬筆，存在另一個 key（見 SP_KEY）
+  smallPay: { updatedAt: null, count: 0 },
 })
 
 /** 沒有 categories 的舊資料補上預設——id 沿用 food/transport…，既有消費對得回去 */
 const readCategories = (v) =>
   Array.isArray(v) && v.length ? v.filter((c) => c && c.id && c.name) : defaultCategories()
+
+/** 加回饋規則之前建的卡沒有 rules，補成空陣列，計算與 UI 都不必到處防 undefined */
+const readCards = (v) =>
+  (Array.isArray(v) ? v : []).map((c) => ({ ...c, rules: Array.isArray(c.rules) ? c.rules : [] }))
+
+// 名單獨立一個 key。真實名單（財金公司特約商店）有 1.7 萬筆、247KB，
+// 塞進主 store 的話，deep watch 會讓「每記一筆帳」都重新序列化整包寫回 localStorage。
+const SP_KEY = 'cc-tracker-smallpay'
+
+let spChannels = [] // 原文，顯示用
+let spKeys = [] // matchKey 版本；比對只走這個——每次重算慢 50 倍以上
+
+/**
+ * 讀名單並建好比對索引，回傳給 store 的輕量摘要。
+ *
+ * legacy 是主 store 裡的舊 smallPay 欄位：名單本來就存在主 store，
+ * 後來因為體積（1.7 萬筆／247KB）搬到獨立 key。已經匯過名單的人
+ * 升級後會讀不到自己的名單，所以在這裡一次性搬過去。
+ */
+function loadSmallPay(legacy) {
+  try {
+    const p = JSON.parse(localStorage.getItem(SP_KEY))
+    let raw = Array.isArray(p?.channels) ? p.channels : null
+    let updatedAt = typeof p?.updatedAt === 'number' ? p.updatedAt : null
+
+    if (!raw && Array.isArray(legacy?.channels) && legacy.channels.length) {
+      raw = legacy.channels
+      updatedAt = typeof legacy.updatedAt === 'number' ? legacy.updatedAt : Date.now()
+      const migrated = raw.map(normalizeChannel).filter(Boolean)
+      try {
+        localStorage.setItem(SP_KEY, JSON.stringify({ updatedAt, channels: migrated }))
+        console.info(`小額支付名單已搬到新位置：${migrated.length} 筆`)
+      } catch (e) {
+        // 搬不過去也不要擋著啟動，這輪先用記憶體裡的
+        console.error('名單搬遷失敗', e)
+      }
+      raw = migrated
+    }
+
+    const list = (raw || []).map(normalizeChannel).filter(Boolean)
+    spChannels = list
+    spKeys = list.map(matchKey)
+    return { updatedAt, count: list.length }
+  } catch (e) {
+    console.error('小額支付名單讀取失敗', e)
+    spChannels = []
+    spKeys = []
+    return { updatedAt: null, count: 0 }
+  }
+}
 
 function load() {
   try {
@@ -24,11 +78,12 @@ function load() {
     if (!raw) return emptyState()
     const p = JSON.parse(raw)
     return {
-      cards: Array.isArray(p.cards) ? p.cards : [],
+      cards: readCards(p.cards),
       expenses: Array.isArray(p.expenses) ? p.expenses : [],
       categories: readCategories(p.categories),
       currency: typeof p.currency === 'string' && p.currency ? p.currency : '$',
       lastBackupAt: typeof p.lastBackupAt === 'number' ? p.lastBackupAt : null,
+      smallPay: loadSmallPay(p.smallPay),
     }
   } catch (e) {
     console.error('讀取資料失敗，改用空白資料', e)
@@ -59,8 +114,8 @@ export const money = (n) => store.currency + Math.round(n).toLocaleString('en-US
 
 /* ── 卡片 ─────────────────────────────────── */
 
-export function addCard({ name, last4, color, image = null }) {
-  store.cards.push({ id: uid(), name, last4, color, image, createdAt: Date.now() })
+export function addCard({ name, last4, color, image = null, rules = [] }) {
+  store.cards.push({ id: uid(), name, last4, color, image, rules, createdAt: Date.now() })
 }
 
 export function updateCard(id, patch) {
@@ -72,6 +127,107 @@ export function updateCard(id, patch) {
 export function removeCard(id) {
   store.expenses = store.expenses.filter((e) => e.cardId !== id)
   store.cards = store.cards.filter((c) => c.id !== id)
+}
+
+/* ── 回饋規則 ─────────────────────────────── */
+
+/** 一條新規則的預設值：一般消費 1%、不設上限，使用者再往上改 */
+export const newRule = () => ({
+  id: uid(),
+  name: '',
+  categories: [],
+  rate: 1,
+  capType: 'none',
+  capAmount: 0,
+  excludeSmallPay: true,
+  // 擴充點：以後若改成自動抓規則，這裡記來源與抓取時間，手動編輯過的不要被蓋掉
+  source: 'manual',
+  updatedAt: Date.now(),
+})
+
+/* ── 小額支付名單 ─────────────────────────── */
+
+/** 名單本體（顯示／匯出用）。上萬筆，不要塞進 reactive state */
+export const smallPayChannels = () => spChannels
+
+/**
+ * 名單查詢：找出名單裡含這段文字的店。
+ *
+ * 這是純查詢工具，**不參與回饋計算**——使用者明確要求「查詢是查詢，
+ * 要不要計入回饋由我自己決定」。理由也站得住腳：名單是分店全名，
+ * 模糊比對誤判很兇（打「全家」會撞到「黑松販賣機(康寧大學全家外)」），
+ * 讓程式替他判定只會把回饋算錯。
+ */
+export function searchSmallPay(q, limit = 50) {
+  const k = matchKey(q)
+  if (!k || !spKeys.length) return { hits: [], total: 0 }
+  const hits = []
+  let total = 0
+  for (let i = 0; i < spKeys.length; i++) {
+    if (spKeys[i]?.includes(k)) {
+      total++
+      if (hits.length < limit) hits.push(spChannels[i])
+    }
+  }
+  return { hits, total }
+}
+
+/**
+ * 這筆消費算不算「小額支付」。
+ * 只認使用者自己勾的——不做任何自動比對。名單只用來查，不用來判。
+ */
+export const isSmallPay = (e) => e.smallPay === true
+
+/** 整份取代：使用者每季／每月換一份，不做逐筆增刪 */
+export function setSmallPayList(channels) {
+  const clean = [...new Set(channels.map(normalizeChannel).filter(Boolean))]
+  const updatedAt = Date.now()
+  try {
+    localStorage.setItem(SP_KEY, JSON.stringify({ updatedAt, channels: clean }))
+  } catch (e) {
+    console.error('名單寫入失敗', e)
+    throw new Error('儲存空間不足，名單沒有存進去')
+  }
+  spChannels = clean
+  spKeys = clean.map(matchKey)
+  store.smallPay = { updatedAt, count: clean.length }
+  return clean.length
+}
+
+/* ── 回饋計算（給 UI 用，包掉 store 存取）─── */
+
+const monthExpensesOf = (cardId, m) =>
+  store.expenses.filter((e) => e.cardId === cardId && monthOf(e.date) === m)
+
+/** 某張卡某月的規則用量與逐筆回饋 */
+export const usageOf = (cardId, m) => {
+  const card = store.cards.find((c) => c.id === cardId)
+  if (!card) return { usedMap: {}, lines: [], totalReward: 0 }
+  return monthUsage(card, monthExpensesOf(cardId, m), isSmallPay)
+}
+
+/** 規則的顯示名稱：使用者沒取名就用「分類 + %」湊一個 */
+export function ruleLabel(rule) {
+  if (!rule) return ''
+  if (rule.name) return rule.name
+  const cats = rule.categories?.length
+    ? rule.categories.map((id) => catOf(id).name).join('、')
+    : '一般消費'
+  return `${cats} ${rule.rate}%`
+}
+
+/** 卡片列表只有一個位置能示警：回傳這張卡本月最吃緊的那條規則 */
+export function cardAlert(cardId, m) {
+  const card = store.cards.find((c) => c.id === cardId)
+  if (!card) return null
+  return tightestStatus(card, usageOf(cardId, m).usedMap)
+}
+
+/** 刷卡前試算：這筆該刷哪張。只算使用者自己建的卡 */
+export function simulateCards(query, m) {
+  const byCard = {}
+  for (const c of store.cards) byCard[c.id] = monthExpensesOf(c.id, m)
+  return simulate(store.cards, byCard, query, isSmallPay)
 }
 
 /* ── 分類 ─────────────────────────────────── */
@@ -129,7 +285,8 @@ export function backupFileName() {
 }
 
 export function serialize() {
-  return JSON.stringify(store, null, 2)
+  // 名單平常存在另一個 key，匯出時併進來，換手機才還原得回去
+  return JSON.stringify({ ...store, smallPay: { updatedAt: store.smallPay.updatedAt, channels: spChannels } }, null, 2)
 }
 
 /** 匯入前先驗格式，壞檔案不要蓋掉好資料 */
@@ -137,12 +294,13 @@ export function applyImport(parsed) {
   if (!parsed || !Array.isArray(parsed.cards) || !Array.isArray(parsed.expenses)) {
     throw new Error('格式不符')
   }
-  store.cards = parsed.cards
+  // 舊版備份沒有 rules／categories／smallPay，一律走 read* 補齊
+  store.cards = readCards(parsed.cards)
   store.expenses = parsed.expenses
-  // 舊版備份沒有 categories，補預設
   store.categories = readCategories(parsed.categories)
   store.currency = typeof parsed.currency === 'string' && parsed.currency ? parsed.currency : '$'
   store.lastBackupAt = typeof parsed.lastBackupAt === 'number' ? parsed.lastBackupAt : null
+  if (Array.isArray(parsed.smallPay?.channels)) setSmallPayList(parsed.smallPay.channels)
 }
 
 export function wipeAll() {

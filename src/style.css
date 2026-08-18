@@ -286,13 +286,110 @@ input { font-size: 16px; }
 .ex-amt { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 
 /* ── 卡片管理 ───────────────────────────────── */
+/* ── 試算頁（刷哪張最划算）──────────────── */
+
+.sim-hits {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 8px 2px 0;
+  color: var(--danger);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+/* 模糊命中用中性色：它只是提示，不是警告——用紅色會讓人以為已經判定了 */
+.sim-maybe, .sp-maybe {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 8px 2px 0;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+/* 查名單的入口：低調的文字連結，它只是輔助，不該搶走試算結果的注意力 */
+.sp-search-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 2px 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sim-hint { font-size: 14px; color: var(--text-dim); text-align: center; padding: 26px 12px; line-height: 1.5; }
+
+/* 首選那張講大聲一點：使用者要的就是這一個答案 */
+.sim-best {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  margin-top: 18px;
+}
+.sim-best-label { font-size: 12px; color: var(--text-dim); letter-spacing: .06em; }
+.sim-best-name {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 18px; font-weight: 700; margin-top: 6px;
+}
+.sim-best-name small { font-weight: 400; opacity: .6; font-size: 13px; letter-spacing: .08em; }
+.sim-best-reward {
+  font-size: 34px; font-weight: 700; letter-spacing: -.03em;
+  margin-top: 8px; font-variant-numeric: tabular-nums;
+}
+.sim-best-rule { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+.sim-warn { margin-top: 10px; font-size: 13px; color: var(--danger); font-weight: 600; }
+
+.sim-none {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 22px 18px; box-shadow: var(--shadow); margin-top: 18px; text-align: center;
+}
+.sim-none-big { font-size: 17px; font-weight: 700; }
+.sim-none-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
+
+.sim-list { display: flex; flex-direction: column; gap: 8px; }
+.sim-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border-radius: 14px;
+  padding: 12px 14px; box-shadow: var(--shadow);
+}
+.sim-row.dim { opacity: .72; }
+.sim-mid { flex: 1; min-width: 0; }
+.sim-name { font-size: 15px; font-weight: 600; }
+.sim-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.sim-amt { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sim-amt.zero { color: var(--text-dim); font-weight: 500; }
+.hot { color: var(--danger); font-weight: 600; }
+
+.sim-row .dot, .sim-best-name .dot { width: 22px; height: 15px; border-radius: 4px; flex: none; }
+
+/* ── 勾選列（試算頁與規則編輯共用外觀）──── */
+
+.toggle-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  width: 100%; text-align: left; margin-top: 12px;
+  padding: 12px 14px; border-radius: 14px;
+  background: var(--surface); box-shadow: var(--shadow);
+}
+.toggle-box {
+  width: 22px; height: 22px; border-radius: 6px; flex: none;
+  border: 1.5px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: #fff;
+  background: var(--surface);
+}
+.toggle-box.on { background: var(--accent); border-color: var(--accent); }
+.toggle-text { font-size: 14px; line-height: 1.35; }
+.toggle-text em { display: block; font-style: normal; font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+
 .card-manage { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
 
 .cc {
   position: relative;
   border-radius: 18px;
   padding: 16px;
-  height: 112px;
+  min-height: 112px;
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -330,6 +427,25 @@ input { font-size: 16px; }
 .cc-last4 { font-size: 15px; letter-spacing: .12em; opacity: .92; font-variant-numeric: tabular-nums; }
 .cc-total { font-size: 13px; opacity: .9; text-align: right; }
 .cc-total b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+
+/* 卡面上的回饋額度進度。只有設了上限的規則才有東西可畫，
+   所以 .cc 的高度改成下限——沒規則的卡維持原本 112px */
+.cc-cap { margin-top: 10px; }
+.cc-cap-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 8px; font-size: 12px; opacity: .92;
+}
+.cc-cap-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cc-cap-left { flex: none; font-variant-numeric: tabular-nums; }
+.cc-cap-bar {
+  height: 4px; border-radius: 2px; margin-top: 5px; overflow: hidden;
+  background: rgba(255, 255, 255, .28);
+}
+.cc-cap-bar > i { display: block; height: 100%; border-radius: 2px; background: rgba(255, 255, 255, .92); }
+/* 快滿／已滿轉紅。卡面本身是彩色的，紅要夠亮才分得出來 */
+.cc-cap.hot .cc-cap-left { color: #ffd7d8; font-weight: 700; }
+.cc-cap.hot .cc-cap-bar > i { background: #ff5a5f; }
+.cc-norule { margin-top: 10px; font-size: 12px; opacity: .72; }
 
 .btn-block {
   width: 100%;
@@ -617,6 +733,55 @@ input { font-size: 16px; }
 .cp-name { font-size: 17px; font-weight: 700; }
 .cp-last4 { font-size: 15px; letter-spacing: .12em; opacity: .9; }
 
+/* ── 回饋規則編輯（在 BottomSheet 內：底色不透明，不套照片玻璃）── */
+
+.rules-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rules-head .field-label { margin-bottom: 0; }
+/* .btn-lite 預設 flex:1（給 .img-row 平分用），這裡要縮回內容寬 */
+.rules-head .btn-lite { flex: none; padding: 8px 14px; margin-top: 8px; }
+.rules-empty { font-size: 13px; color: var(--text-dim); margin: 2px 2px 0; line-height: 1.5; }
+.sp-flag { font-size: 12.5px; color: var(--danger); font-weight: 600; margin: 8px 2px 0; line-height: 1.45; }
+/* 查詢結果：在 BottomSheet 裡，用不透明底色，不套照片玻璃 */
+.sp-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.sp-result {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.sp-textarea {
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 180px;
+  margin-bottom: 12px;
+}
+
+.rule-box {
+  background: var(--surface-2);
+  border-radius: 16px;
+  padding: 4px 14px 14px;
+  margin-top: 10px;
+}
+.rule-box .field-label { margin-top: 12px; }
+.rule-top { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; }
+.rule-top b { font-size: 14px; }
+.rule-del { font-size: 13px; color: var(--danger); padding: 4px 6px; font-weight: 600; }
+/* sheet 內的勾選列跟 rule-box 同層次，不要再壓一層陰影 */
+.rule-box .toggle-row { box-shadow: none; border: 1px solid var(--line); }
+
 .img-row { display: flex; gap: 10px; }
 .btn-lite {
   flex: 1;
@@ -759,6 +924,11 @@ body.has-photo::before {
 .has-photo .ex-row,
 .has-photo .settings-group,
 .has-photo .select-pill,
+.has-photo .sim-best,
+.has-photo .sim-none,
+.has-photo .sim-row,
+/* 只有試算頁那顆坐在照片上；規則編輯裡的 .toggle-row 在 sheet 內，不能套 */
+.has-photo .sim-toggle,
 .has-photo .btn-block {
   background: rgba(255, 255, 255, .2);
   backdrop-filter: blur(3px) saturate(170%) brightness(.9);
@@ -780,6 +950,12 @@ body.has-photo::before {
    BottomSheet 裡的東西（.opt-row 等）背景是不透明淺色，套白字會消失 */
 .has-photo .row-btn,
 .has-photo .btn-block,
+.has-photo .sim-best-name,
+.has-photo .sim-best-reward,
+.has-photo .sim-none-big,
+.has-photo .sim-name,
+.has-photo .sim-amt,
+.has-photo .sim-toggle .toggle-text,
 .has-photo .select-pill { color: #fff; }
 
 /* 次要文字用降透明度的白，不要用灰——灰在半透明玻璃上會糊掉 */
@@ -787,9 +963,47 @@ body.has-photo::before {
 .has-photo .cat-pct,
 .has-photo .ex-sub,
 .has-photo .chev,
+.has-photo .sp-search-link,
+.has-photo .sim-maybe,
+.has-photo .sim-hint,
+.has-photo .sim-best-label,
+.has-photo .sim-best-rule,
+.has-photo .sim-none-sub,
+.has-photo .sim-sub,
+.has-photo .sim-amt.zero,
+.has-photo .sim-toggle .toggle-text em,
 .has-photo .inline-input { color: rgba(255, 255, 255, .7); }
 
 .has-photo .row-btn.danger { color: #ff7b80; }
+/* 警示色在玻璃上要提亮，var(--danger) 那個深紅會被半透明白吃掉 */
+.has-photo .sim-warn,
+.has-photo .sim-hits,
+.has-photo .hot { color: #ff9296; }
+/* 勾選框在玻璃上：未勾的邊框要看得見，勾了要夠實 */
+.has-photo .sim-toggle .toggle-box { background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .45); }
+.has-photo .sim-toggle .toggle-box.on { background: #fff; border-color: #fff; color: var(--accent); }
+
+/* 試算頁把 sheet 用的輸入元件搬到照片上，要一起玻璃化 */
+.has-photo .sim-page .amount-input input,
+.has-photo .sim-page .amount-input .cur,
+.has-photo .sim-page .field-label { color: #fff; }
+.has-photo .sim-page .amount-input input::placeholder { color: rgba(255, 255, 255, .45); }
+.has-photo .sim-page .text-field::placeholder { color: rgba(255, 255, 255, .55); }
+.has-photo .sim-page .chip,
+.has-photo .sim-page .text-field {
+  background: rgba(255, 255, 255, .2);
+  backdrop-filter: blur(3px) saturate(170%) brightness(.9);
+  -webkit-backdrop-filter: blur(3px) saturate(170%) brightness(.9);
+  border: 1px solid rgba(255, 255, 255, .22);
+  color: #fff;
+}
+.has-photo .sim-page .chip.on {
+  background: rgba(255, 255, 255, .82);
+  border-color: #fff;
+  color: var(--text);
+  font-weight: 700;
+}
+.has-photo .sim-page .text-field:focus { border-color: rgba(255, 255, 255, .7); }
 
 .has-photo .select-caret {
   border-right-color: rgba(255, 255, 255, .7);
@@ -810,13 +1024,43 @@ body.has-photo::before {
 .photo-light .ex-amt,
 .photo-light .row-btn { color: var(--text); }
 .photo-light .btn-block,
+.photo-light .sim-best-name,
+.photo-light .sim-best-reward,
+.photo-light .sim-none-big,
+.photo-light .sim-name,
+.photo-light .sim-amt,
+.photo-light .sim-toggle .toggle-text,
 .photo-light .select-pill { color: var(--text); }
 
 .photo-light .cs-meta,
 .photo-light .cat-pct,
 .photo-light .ex-sub,
 .photo-light .chev,
+.photo-light .sp-search-link,
+.photo-light .sim-maybe,
+.photo-light .sim-hint,
+.photo-light .sim-best-label,
+.photo-light .sim-best-rule,
+.photo-light .sim-none-sub,
+.photo-light .sim-sub,
+.photo-light .sim-amt.zero,
+.photo-light .sim-toggle .toggle-text em,
 .photo-light .inline-input { color: #414a57; }
+
+/* 亮圖時警示回到深紅，並把勾選框還原成深色系 */
+.photo-light .sim-warn,
+.photo-light .sim-hits,
+.photo-light .hot { color: var(--danger); }
+.photo-light .sim-page .amount-input input,
+.photo-light .sim-page .amount-input .cur,
+.photo-light .sim-page .field-label,
+.photo-light .sim-page .chip,
+.photo-light .sim-page .text-field { color: var(--text); }
+.photo-light .sim-page .amount-input input::placeholder,
+.photo-light .sim-page .text-field::placeholder { color: rgba(23, 24, 28, .45); }
+.photo-light .sim-page .chip.on { color: var(--text); }
+.photo-light .sim-toggle .toggle-box { background: rgba(255, 255, 255, .55); border-color: rgba(23, 24, 28, .28); }
+.photo-light .sim-toggle .toggle-box.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .photo-light .row-btn.danger { color: var(--danger); }
 
@@ -847,6 +1091,10 @@ body.has-photo::before {
 .photo-light .section-title,
 .photo-light .day-head,
 .photo-light .empty,
+/* .sim-hint 是裸文字，直接坐在照片上，需要描邊；.sim-* 其餘都在玻璃卡內 */
+.photo-light .sp-search-link,
+.photo-light .sim-maybe,
+.photo-light .sim-hint,
 .photo-light .hint {
   text-shadow: 0 1px 2px rgba(255, 255, 255, .6), 0 0 2px rgba(255, 255, 255, .5);
 }
