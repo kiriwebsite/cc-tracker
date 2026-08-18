@@ -3,7 +3,8 @@ import { ref, watch, computed, nextTick } from 'vue'
 import {
   store, addCategory, updateCategory, removeCategory, countByCategory,
 } from '../composables/useStore'
-import { EMOJI_PRESETS } from '../data/categories'
+import { EMOJI_GROUPS, ALL_EMOJI } from '../data/emoji'
+import { supportedSet } from '../utils/emojiSupport'
 import { toast } from '../composables/useToast'
 import BottomSheet from './BottomSheet.vue'
 
@@ -16,6 +17,7 @@ const emit = defineEmits(['close'])
 
 const name = ref('')
 const emoji = ref('📦')
+const emojiGroups = ref([])
 const err = ref('')
 const nameInput = ref(null)
 
@@ -32,6 +34,24 @@ watch(
     name.value = c ? c.name : ''
     emoji.value = c ? c.emoji : '📦'
     err.value = ''
+
+    // 開面板時才過濾字型畫得出來的，不要拖慢 app 啟動；偵測整份只做一次且有快取
+    if (!emojiGroups.value.length) {
+      const ok = supportedSet(ALL_EMOJI)
+      const groups = EMOJI_GROUPS.map((g) => ({
+        name: g.name,
+        items: [...g.items].filter((e) => ok.has(e)),
+      })).filter((g) => g.items.length)
+
+      // 一千多顆按鈕一次建 DOM 要半秒，面板的滑上動畫會被卡住。
+      // 先只掛第一組，其餘讓出主執行緒後再補，使用者捲到時早就在了。
+      // 用 setTimeout 而不是 rAF：rAF 在分頁不可見時不會執行，
+      // 那會讓其餘分組永遠補不上來
+      emojiGroups.value = groups.slice(0, 1)
+      setTimeout(() => {
+        emojiGroups.value = groups
+      }, 0)
+    }
 
     await nextTick()
     setTimeout(() => nameInput.value?.focus(), 320)
@@ -122,17 +142,22 @@ function del() {
       @input="onEmojiInput"
     />
 
-    <div class="emoji-grid">
-      <button
-        v-for="e in EMOJI_PRESETS"
-        :key="e"
-        type="button"
-        class="emoji-cell"
-        :class="{ on: emoji === e }"
-        @click="emoji = e"
-      >
-        {{ e }}
-      </button>
+    <div class="emoji-picker">
+      <template v-for="g in emojiGroups" :key="g.name">
+        <div class="emoji-group-title">{{ g.name }}</div>
+        <div class="emoji-grid">
+          <button
+            v-for="e in g.items"
+            :key="e"
+            type="button"
+            class="emoji-cell"
+            :class="{ on: emoji === e }"
+            @click="emoji = e"
+          >
+            {{ e }}
+          </button>
+        </div>
+      </template>
     </div>
 
     <button v-if="editing" type="button" class="btn-delete" @click="del">刪除這個分類</button>

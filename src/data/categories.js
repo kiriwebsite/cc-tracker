@@ -16,13 +16,6 @@ export const DEFAULT_CATEGORIES = [
 // 不存進 store，使用者刪不掉，永遠有東西可以顯示。
 export const FALLBACK_CATEGORY = { id: '__none', name: '未分類', emoji: '📦' }
 
-// 新增分類時的快選；打不出 emoji 的桌面瀏覽器靠這個
-export const EMOJI_PRESETS = [
-  '🍜', '🍱', '☕', '🍺', '🛒', '🚇', '🚕', '⛽', '🛍️', '👕',
-  '🎬', '🎮', '🎵', '📚', '🧾', '💡', '📱', '🏠', '💊', '🏥',
-  '✈️', '🏖️', '🎁', '🐶', '💄', '💪', '🎓', '📦',
-]
-
 export const CARD_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
   '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#64748b', '#1f2937',

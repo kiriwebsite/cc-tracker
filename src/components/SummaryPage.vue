@@ -4,6 +4,7 @@ import { store, money, expensesOfMonth, catOf } from '../composables/useStore'
 import EmptyState from './EmptyState.vue'
 
 const props = defineProps({ month: { type: String, required: true } })
+defineEmits(['view-card'])
 
 const list = computed(() => expensesOfMonth(props.month))
 const total = computed(() => list.value.reduce((a, e) => a + e.amount, 0))
@@ -65,7 +66,13 @@ const catRows = computed(() => {
   />
 
   <div v-else class="card-summaries">
-    <div v-for="r in cardRows" :key="r.card.id" class="cs-item">
+    <button
+      v-for="r in cardRows"
+      :key="r.card.id"
+      type="button"
+      class="cs-item"
+      @click="$emit('view-card', r.card.id)"
+    >
       <div class="cs-dot" :style="r.dotStyle"></div>
 
       <div class="cs-mid">
@@ -79,7 +86,8 @@ const catRows = computed(() => {
       </div>
 
       <div class="cs-amt">{{ money(r.amt) }}</div>
-    </div>
+      <span class="chev">›</span>
+    </button>
   </div>
 
   <template v-if="catRows.length">

@@ -137,7 +137,11 @@ input { font-size: 16px; }
   border-radius: var(--radius);
   padding: 14px;
   box-shadow: var(--shadow);
+  width: 100%;
+  text-align: left;
+  color: var(--text);
 }
+.cs-item:active { background: var(--accent-soft); }
 
 .cs-dot { width: 34px; height: 22px; border-radius: 5px; flex: none; }
 .cs-mid { flex: 1; min-width: 0; }
@@ -174,8 +178,23 @@ input { font-size: 16px; }
 /* ── 明細 ───────────────────────────────────── */
 .filter-row {
   display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 0 4px;
 }
+
+/* 從總覽點卡片進來的返回鍵 */
+.back-btn {
+  flex: none;
+  width: 38px; height: 38px;
+  font-size: 26px;
+  line-height: 1;
+  border-radius: 50%;
+  color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.back-btn:active { background: var(--accent-soft); }
 
 /* 卡片篩選：藥丸按鈕，點了從底部滑出選單（不用原生 select，
    系統的下拉沒辦法配合這套視覺） */
@@ -809,11 +828,37 @@ input { font-size: 16px; }
 .cat-preview-emoji { font-size: 26px; line-height: 1; }
 .cat-preview-name { font-size: 16px; font-weight: 600; }
 
+/* 一千多顆 emoji 不能整片攤開，關進一個可捲動的框裡 */
+.emoji-picker {
+  max-height: 44vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+  padding: 0 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+/* 組名黏在頂端，捲到哪都知道自己在哪一區 */
+.emoji-group-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 10px 2px 6px;
+}
+
 .emoji-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
   gap: 6px;
-  margin-top: 10px;
+  /* 一千多顆按鈕全畫要半秒。捲到才畫，捲過的尺寸瀏覽器會自己記住；
+     不支援的瀏覽器就是照舊全畫，只是慢一點，不會壞 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
 }
 .emoji-cell {
   aspect-ratio: 1;
@@ -923,6 +968,7 @@ body.has-photo::before {
 .has-photo .cat-row,
 .has-photo .ex-row,
 .has-photo .settings-group,
+.has-photo .back-btn,
 .has-photo .select-pill,
 .has-photo .sim-best,
 .has-photo .sim-none,
@@ -1030,6 +1076,7 @@ body.has-photo::before {
 .photo-light .sim-name,
 .photo-light .sim-amt,
 .photo-light .sim-toggle .toggle-text,
+.photo-light .back-btn,
 .photo-light .select-pill { color: var(--text); }
 
 .photo-light .cs-meta,

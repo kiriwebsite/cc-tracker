@@ -8,10 +8,12 @@ defineEmits(['add'])
 const TABS = [
   { id: 'simulate', label: '試算' },
   { id: 'summary', label: '總覽' },
-  { id: 'list', label: '明細' },
   { id: 'cards', label: '卡片' },
   { id: 'settings', label: '設定' },
 ]
+
+/** 消費明細是從總覽的各卡小計點進去的子頁，這時總覽要保持亮著 */
+const isActive = (id) => page.value === id || (id === 'summary' && page.value === 'list')
 
 /* 玻璃液滴指示器：一顆共用的液滴滑到選中的 tab 底下，
    而不是每顆按鈕各自畫圓。位置用 offsetLeft 量實際佈局，
@@ -22,7 +24,7 @@ const moving = ref(false)
 let moveTimer
 
 function placeBlob(animate) {
-  const el = tabEls[page.value]
+  const el = tabEls[page.value === 'list' ? 'summary' : page.value]
   const blob = blobEl.value
   if (!el || !blob) return
   const x = el.offsetLeft + el.offsetWidth / 2 - 28 // 液滴寬 56，置中
@@ -63,7 +65,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', onResize))
       <button
         :ref="(el) => (tabEls[t.id] = el)"
         class="tab"
-        :class="{ active: page === t.id }"
+        :class="{ active: isActive(t.id) }"
         :aria-label="t.label"
         :title="t.label"
         @click="page = t.id"
@@ -75,15 +77,13 @@ onBeforeUnmount(() => window.removeEventListener('resize', onResize))
         <svg v-else-if="t.id === 'summary'" viewBox="0 0 24 24">
           <path d="M4 19V10M10 19V5M16 19v-6M22 19H2" />
         </svg>
-        <svg v-else-if="t.id === 'list'" viewBox="0 0 24 24">
-          <path d="M4 6h16M4 12h16M4 18h10" />
-        </svg>
         <svg v-else-if="t.id === 'cards'" viewBox="0 0 24 24">
           <rect x="2" y="5" width="20" height="14" rx="3" /><path d="M2 10h20" />
         </svg>
+        <!-- 滑桿而不是齒輪：原本那圈放射狀短線在 22px 下看起來像太陽 -->
         <svg v-else viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="3.2" />
-          <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
+          <path d="M5 20v-6M5 10V4M12 20v-9M12 7V4M19 20v-4M19 12V4" />
+          <path d="M2.5 14h5M9.5 7h5M16.5 16h5" />
         </svg>
       </button>
     </template>

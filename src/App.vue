@@ -18,6 +18,8 @@ import CategorySheet from './components/CategorySheet.vue'
 // 開起來就是試算：這個 app 的主要用途是刷卡前查該刷哪張，不是事後看報表
 const page = ref('simulate')
 const month = ref(currentMonth())
+// 明細不再是獨立分頁，而是從總覽的各卡小計點進去看某張卡的消費
+const listCard = ref('all')
 
 const expenseSheet = ref({ open: false, editId: null })
 const cardSheet = ref({ open: false, editId: null })
@@ -47,12 +49,17 @@ watch(page, () => window.scrollTo(0, 0))
 
       <template v-else-if="page === 'summary'">
         <MonthNav v-model="month" />
-        <SummaryPage :month="month" />
+        <SummaryPage :month="month" @view-card="listCard = $event; page = 'list'" />
       </template>
 
       <template v-else-if="page === 'list'">
         <MonthNav v-model="month" />
-        <ListPage :month="month" @edit="openExpense" />
+        <ListPage
+          :month="month"
+          :card="listCard"
+          @edit="openExpense"
+          @back="page = 'summary'"
+        />
       </template>
 
       <CardsPage

@@ -5,10 +5,14 @@ import { dayLabel } from '../utils/date'
 import EmptyState from './EmptyState.vue'
 import BottomSheet from './BottomSheet.vue'
 
-const props = defineProps({ month: { type: String, required: true } })
-defineEmits(['edit'])
+const props = defineProps({
+  month: { type: String, required: true },
+  // 從總覽點某張卡進來時帶的初始篩選；App 用 :key 重掛，所以取初始值就夠
+  card: { type: String, default: 'all' },
+})
+defineEmits(['edit', 'back'])
 
-const filterCard = ref('all')
+const filterCard = ref(props.card)
 const pickerOpen = ref(false)
 
 const filterLabel = computed(() =>
@@ -70,6 +74,7 @@ const days = computed(() => {
 
 <template>
   <div class="filter-row">
+    <button type="button" class="back-btn" aria-label="返回總覽" @click="$emit('back')">‹</button>
     <button
       type="button"
       class="select-pill"
