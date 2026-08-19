@@ -123,6 +123,16 @@ export function updateCard(id, patch) {
   if (c) Object.assign(c, patch)
 }
 
+/**
+ * 卡片縮圖的樣式：有上傳卡面就用那張圖，沒有才退回色塊。
+ * 總覽、明細篩選、記帳選卡三處都要一致，所以集中在這裡。
+ * （卡片頁的卡面是全幅漸層，另有一套，不走這個）
+ */
+export const cardThumb = (card) =>
+  card?.image
+    ? { backgroundImage: `url(${card.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: card?.color }
+
 /** 連同這張卡的所有消費一起刪掉 */
 export function removeCard(id) {
   store.expenses = store.expenses.filter((e) => e.cardId !== id)

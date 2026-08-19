@@ -40,27 +40,54 @@ async function freshMeta() {
   }
 }
 
-// NASA API 三不五時卡住，而 predev 擋在 dev server 前面。
-// 共用同一個 signal＝整趟抓取（重試＋下圖）共 20 秒總預算，逾時就沿用既有圖。
-const TIMEOUT = { signal: AbortSignal.timeout(20000) }
+// predev 擋在 dev server 前面，網路卡住不能讓它無限等
+const timeout = (ms) => ({ signal: AbortSignal.timeout(ms) })
 
-async function fetchApod(date) {
+/** undici 對所有網路錯誤都只給 "fetch failed"，真正原因在 cause 裡 */
+const describe = (e) => (e.cause?.code ? `${e.cause.code} ${e.cause.message || ''}`.trim() : e.message)
+
+// 正式站每天排程跑完就有一份處理好的圖。本機開發直接拿那份最省事——
+// 不必打 NASA、不必跑 sharp，而且繞開了 apod.nasa.gov（2026-08-19 實測
+// 從本機連不上那台，api.nasa.gov 卻正常）。
+const SITE = 'https://kiriwebsite.github.io/cc-tracker/'
+
+async function fromSite() {
+  const res = await fetch(SITE + 'apod.json', timeout(8000))
+  if (!res.ok) throw new Error('正式站 apod.json 回 ' + res.status)
+  const meta = await res.json()
+
+  const img = await fetch(SITE + (meta.file || 'apod.jpg'), timeout(8000))
+  if (!img.ok) throw new Error('正式站圖片回 ' + img.status)
+
+  // 那份已經壓過、也算好亮度了，原封搬過來就好
+  await writeFile(new URL('apod.jpg', OUT), Buffer.from(await img.arrayBuffer()))
+  await writeFile(
+    new URL('apod.json', OUT),
+    JSON.stringify({ ...meta, fetchedAt: new Date().toISOString() }),
+  )
+  return meta
+}
+
+async function fetchApod(date, t) {
   const res = await fetch(
     `https://api.nasa.gov/planetary/apod?api_key=${KEY}&date=${date}&thumbs=true`,
-    TIMEOUT,
+    t,
   )
   if (!res.ok) throw new Error('APOD API 回 ' + res.status + '（' + date + '）')
   return res.json()
 }
 
 async function run() {
+  // 整趟（重試＋下圖）共用一個 20 秒預算
+  const t = timeout(20000)
+
   // 目標日抓不到（發布延遲、API 抽風）就退一天重試
-  const meta = await fetchApod(dateStr(0)).catch(() => fetchApod(dateStr(1)))
+  const meta = await fetchApod(dateStr(0), t).catch(() => fetchApod(dateStr(1), t))
 
   const src = meta.media_type === 'image' ? meta.url : meta.thumbnail_url
   if (!src) throw new Error('當日無可用圖片（media_type: ' + meta.media_type + '）')
 
-  const img = await fetch(src, TIMEOUT)
+  const img = await fetch(src, t)
   if (!img.ok) throw new Error('圖片下載回 ' + img.status)
   const buf = Buffer.from(await img.arrayBuffer())
 
@@ -104,12 +131,22 @@ async function run() {
 
 try {
   const fresh = await freshMeta()
+
   if (fresh) {
     console.log(`APOD：沿用 public/ 既有的 ${fresh.date}「${fresh.title}」，略過抓取`)
-  } else {
+  } else if (process.env.CI) {
+    // CI 就是產生正式站那份的人，不能回頭抓自己（只會拿到昨天的自己）
     await run()
+  } else {
+    try {
+      const m = await fromSite()
+      console.log(`APOD ${m.date}「${m.title}」← 取自正式站`)
+    } catch (e) {
+      console.warn('正式站取用失敗（' + describe(e) + '），改打 NASA')
+      await run()
+    }
   }
 } catch (e) {
   // 抓不到就不產檔：build 照常進行，前端會退回 client 端直接打 API 的舊路徑
-  console.warn('APOD 抓取略過：' + e.message)
+  console.warn('APOD 抓取略過：' + describe(e))
 }

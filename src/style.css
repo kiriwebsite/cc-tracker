@@ -81,7 +81,7 @@ input { font-size: 16px; }
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 14px 0 6px;
+  padding: 30px 0 6px;
 }
 
 .top h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
@@ -720,7 +720,9 @@ input { font-size: 16px; }
   gap: 6px;
   white-space: nowrap;
 }
-.chip .dot { width: 12px; height: 9px; border-radius: 3px; }
+/* 卡片縮圖要放得下卡面圖才有辨識度：12×9 縮完只剩一個色點。
+   20×13 接近信用卡比例（1.54 vs 1.586），也還沒撐高 chip（字高 14px） */
+.chip .dot { width: 20px; height: 13px; border-radius: 3px; background-size: cover; background-position: center; }
 .chip.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 
 .two-col { display: flex; gap: 12px; }

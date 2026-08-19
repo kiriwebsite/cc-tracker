@@ -60,7 +60,15 @@ export default defineConfig({
         ],
       },
 
-      devOptions: { enabled: true, type: 'module' },
+      devOptions: {
+        enabled: true,
+        type: 'module',
+        // dev 模式的資源由 Vite 即時服務、不會落地成檔案，dev-dist 裡只有
+        // sw.js 與 workbox-*.js，而那些正好都在 globIgnores 內，於是每次啟動
+        // 都抱怨「沒有檔案符合 glob」。這是預期行為，不是設定錯誤，
+        // build 的 precache 不受影響，所以把這個噪音關掉
+        suppressWarnings: true,
+      },
     }),
   ],
 })

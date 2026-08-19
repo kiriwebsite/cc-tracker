@@ -75,13 +75,10 @@ function roomText(r) {
       </span>
     </button>
 
-    <button
-      v-if="store.smallPay?.count"
-      type="button"
-      class="sp-search-link"
-      @click="searchOpen = true"
-    >
-      查這家店在不在小額支付名單裡 ›
+    <!-- 不用 v-if 藏起來：藏了就沒人知道有這個功能，實際上讓人困惑了兩次。
+         還沒匯入名單也照樣顯示，點進去面板會說要先去匯入 -->
+    <button type="button" class="sp-search-link" @click="searchOpen = true">
+      {{ store.smallPay?.count ? '查這家店在不在小額支付名單裡 ›' : '匯入小額支付名單後可在這裡查通路 ›' }}
     </button>
 
     <!-- 還沒輸入金額：先別急著列一堆卡 -->

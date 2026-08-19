@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed, nextTick } from 'vue'
 import {
-  store, money, addExpense, updateExpense, removeExpense, lastUsedCardId,
+  store, money, addExpense, updateExpense, removeExpense, lastUsedCardId, cardThumb,
 } from '../composables/useStore'
 import { ymd, monthOf } from '../utils/date'
 import { toast } from '../composables/useToast'
@@ -123,7 +123,7 @@ function del() {
         :class="{ on: cardId === c.id }"
         @click="cardId = c.id"
       >
-        <span class="dot" :style="{ background: c.color }"></span>
+        <span class="dot" :style="cardThumb(c)"></span>
         <span>{{ c.name }}</span>
       </button>
     </div>

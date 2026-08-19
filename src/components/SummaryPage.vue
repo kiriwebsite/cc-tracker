@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { store, money, expensesOfMonth, catOf } from '../composables/useStore'
+import { store, money, expensesOfMonth, catOf, cardThumb } from '../composables/useStore'
 import EmptyState from './EmptyState.vue'
 
 const props = defineProps({ month: { type: String, required: true } })
@@ -23,10 +23,7 @@ const cardRows = computed(() => {
     ...r,
     pct: total.value ? Math.round((r.amt / total.value) * 100) : 0,
     barWidth: (r.amt / max) * 100 + '%',
-    // 有上傳卡面就用圖當縮圖，沒有就用卡片顏色
-    dotStyle: r.card.image
-      ? { backgroundImage: `url(${r.card.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-      : { background: r.card.color },
+    dotStyle: cardThumb(r.card),
   }))
 })
 

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { store, money, expensesOfMonth, catOf } from '../composables/useStore'
+import { store, money, expensesOfMonth, catOf, cardThumb } from '../composables/useStore'
 import { dayLabel } from '../utils/date'
 import EmptyState from './EmptyState.vue'
 import BottomSheet from './BottomSheet.vue'
@@ -112,12 +112,7 @@ const days = computed(() => {
         :aria-selected="filterCard === c.id"
         @click="pick(c.id)"
       >
-        <span
-          class="opt-swatch"
-          :style="c.image
-            ? { backgroundImage: `url(${c.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-            : { background: c.color }"
-        ></span>
+        <span class="opt-swatch" :style="cardThumb(c)"></span>
         <span class="opt-name">{{ c.name }}</span>
         <span v-if="c.last4" class="opt-last4">•••• {{ c.last4 }}</span>
         <span v-if="filterCard === c.id" class="opt-check">✓</span>
