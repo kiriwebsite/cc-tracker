@@ -24,7 +24,17 @@ const readCategories = (v) =>
 
 /** 加回饋規則之前建的卡沒有 rules，補成空陣列，計算與 UI 都不必到處防 undefined */
 const readCards = (v) =>
-  (Array.isArray(v) ? v : []).map((c) => ({ ...c, rules: Array.isArray(c.rules) ? c.rules : [] }))
+  (Array.isArray(v) ? v : []).map((c) => ({
+    ...c,
+    // 商家規則之前存的規則沒有 merchants／note，一律補齊；
+    // merchants 過一次 normalizeChannel——手改備份 JSON 匯入的字也要能比對
+    rules: (Array.isArray(c.rules) ? c.rules : []).map((r) => ({
+      ...r,
+      merchants: Array.isArray(r.merchants) ? r.merchants.map(normalizeChannel).filter(Boolean) : [],
+      note: typeof r.note === 'string' ? r.note : '',
+      expiry: typeof r.expiry === 'string' ? r.expiry : '',
+    })),
+  }))
 
 // 名單獨立一個 key。真實名單（財金公司特約商店）有 1.7 萬筆、247KB，
 // 塞進主 store 的話，deep watch 會讓「每記一筆帳」都重新序列化整包寫回 localStorage。
@@ -145,7 +155,9 @@ export function removeCard(id) {
 export const newRule = () => ({
   id: uid(),
   name: '',
-  categories: [],
+  merchants: [], // 指定商家關鍵字；有填＝只認商家命中，沒填＝一般消費
+  note: '', // 條件提醒（需搭配的支付方式、要切換的方案），只顯示不參與計算
+  expiry: '', // 回饋到期日 YYYY-MM-DD；空＝沒有期限。過了就不給回饋
   rate: 1,
   capType: 'none',
   capAmount: 0,
@@ -216,14 +228,14 @@ export const usageOf = (cardId, m) => {
   return monthUsage(card, monthExpensesOf(cardId, m), isSmallPay)
 }
 
-/** 規則的顯示名稱：使用者沒取名就用「分類 + %」湊一個 */
+/**
+ * 規則的顯示名稱：使用者沒取名就照有沒有指定商家湊一個。
+ * 趴數不含在裡面——取了名字的規則就看不到趴數了，改由呼叫端自己接上去。
+ */
 export function ruleLabel(rule) {
   if (!rule) return ''
   if (rule.name) return rule.name
-  const cats = rule.categories?.length
-    ? rule.categories.map((id) => catOf(id).name).join('、')
-    : '一般消費'
-  return `${cats} ${rule.rate}%`
+  return rule.merchants?.length ? '指定商家' : '一般消費'
 }
 
 /** 卡片列表只有一個位置能示警：回傳這張卡本月最吃緊的那條規則 */
@@ -237,7 +249,8 @@ export function cardAlert(cardId, m) {
 export function simulateCards(query, m) {
   const byCard = {}
   for (const c of store.cards) byCard[c.id] = monthExpensesOf(c.id, m)
-  return simulate(store.cards, byCard, query, isSmallPay)
+  // 要刷的是現在這筆，所以到期日拿今天比
+  return simulate(store.cards, byCard, { ...query, date: ymd(new Date()) }, isSmallPay)
 }
 
 /* ── 分類 ─────────────────────────────────── */

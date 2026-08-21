@@ -7,6 +7,12 @@
 // 差別全在跨過上限的那一筆：reward 型砍的是回饋金額，spend 型砍的是計入的
 // 消費金額。兩者都是「部分回饋」而不是整筆不給——這是最容易算錯的地方。
 
+import { matchKey } from './text'
+import { parseDate } from './date'
+
+/** 剩幾天內算「快到期」：提前一週講，還來得及換卡或去用掉 */
+export const EXPIRY_SOON_DAYS = 7
+
 /** 用掉八成就轉紅：使用者要的是「快到上限」的警示，不是到了才說 */
 export const NEAR_LIMIT = 0.8
 
@@ -27,14 +33,52 @@ const EPS = 0.001
 export const hasCap = (rule) => rule.capType !== 'none' && Number(rule.capAmount) > 0
 
 /**
- * 這筆消費適用這條規則嗎？
- * categories 空陣列＝一般消費（不限分類）。
+ * 指定商家比對：正規化後「雙向包含」——輸入「肯德基板橋店」中關鍵字「肯德基」，
+ * 輸入「肯德基」也中清單裡的長格式全名（銀行 PDF 常是分店全名）。
+ * 回傳命中的關鍵字原文（給 UI 標明是誰中的，方便使用者抓誤判），沒中回 null。
  */
-export function ruleMatches(rule, { category, smallPay }) {
+export function merchantHit(rule, merchant) {
+  const mk = matchKey(merchant || '')
+  if (!mk) return null
+  for (const kw of rule.merchants || []) {
+    const kk = matchKey(kw)
+    if (kk && (mk.includes(kk) || kk.includes(mk))) return kw
+  }
+  return null
+}
+
+/**
+ * 這條規則在這天過期了嗎（expiry 空＝沒有期限）。
+ * date 是「要判斷的那天」——試算給今天，補記帳給消費當天，
+ * 這樣八月初刷的那筆不會因為優惠八月中到期就被追溯扣掉回饋。
+ */
+export const isExpired = (rule, date) => !!rule.expiry && !!date && date > rule.expiry
+
+/** 距到期還剩幾天；沒設期限或已過期回 null */
+export function daysToExpiry(rule, date) {
+  if (!rule.expiry || !date || date > rule.expiry) return null
+  return Math.round((parseDate(rule.expiry) - parseDate(date)) / 86400000)
+}
+
+/**
+ * 除了到期日以外都符合嗎——給 UI 分辨「這條本來會中、只是過期了」，
+ * 才講得出「回饋已於 X/X 到期」而不是含糊的「這筆沒有回饋」。
+ */
+function matchesIgnoringExpiry(rule, { smallPay, merchant }) {
   if (smallPay && rule.excludeSmallPay) return false
-  const cats = rule.categories
-  if (Array.isArray(cats) && cats.length && !cats.includes(category)) return false
+  if (Array.isArray(rule.merchants) && rule.merchants.length) return !!merchantHit(rule, merchant)
   return true
+}
+
+/**
+ * 這筆消費適用這條規則嗎？
+ * - 排除小額支付一票否決——特約商家也蓋不過，要不要排除由規則自己設
+ * - 有填 merchants ＝指定商家規則：只認商家命中；沒填＝一般消費，什麼都適用
+ * - 過期的規則不給回饋：算錯會讓人刷錯卡，比不算更糟
+ * 規則不看分類（2026-08-21 使用者定案）：舊資料的 categories 欄位一律忽略。
+ */
+export function ruleMatches(rule, ctx) {
+  return matchesIgnoringExpiry(rule, ctx) && !isExpired(rule, ctx.date)
 }
 
 /**
@@ -88,7 +132,9 @@ export function monthUsage(card, expenses, isSmallPay = () => false) {
   const lines = []
   for (const e of sorted) {
     const smallPay = isSmallPay(e)
-    const hit = bestRule(card, e.amount, { category: e.category, smallPay }, usedMap)
+    // 商店欄位也餵進去：記過帳的特約消費要吃掉商家規則的額度，試算剩餘才會準。
+    // 到期日用消費當天判斷，不是今天——否則優惠一過期，之前刷的都會被倒扣
+    const hit = bestRule(card, e.amount, { smallPay, merchant: e.merchant, date: e.date }, usedMap)
     if (hit) usedMap[hit.rule.id] += hit.add
     lines.push({
       expense: e,
@@ -138,7 +184,7 @@ export function tightestStatus(card, usedMap) {
  */
 export function simulate(cards, expensesByCard, query, isSmallPay = () => false) {
   const amount = Number(query.amount) || 0
-  const ctx = { category: query.category, smallPay: !!query.smallPay }
+  const ctx = { smallPay: !!query.smallPay, merchant: query.merchant || '', date: query.date || '' }
 
   return cards
     .map((card) => {
@@ -146,13 +192,17 @@ export function simulate(cards, expensesByCard, query, isSmallPay = () => false)
       const hit = bestRule(card, amount, ctx, usedMap)
 
       if (!hit) {
-        // 沒有規則吃這筆。這兩種要分開講：完全沒設規則是「去設定」，
-        // 有規則但不適用是「這張卡這類消費本來就沒回饋」。
+        // 沒有規則吃這筆。這幾種要分開講：完全沒設規則是「去設定」，
+        // 本來會中但過期是「優惠到期了」，其餘才是「這類消費本來就沒回饋」。
         const empty = !(card.rules || []).length
+        const expired = (card.rules || [])
+          .filter((r) => isExpired(r, ctx.date) && matchesIgnoringExpiry(r, ctx))
+          .sort((a, b) => Number(b.rate) - Number(a.rate))[0] || null
         return {
           card, rule: null, reward: 0, counted: 0, capped: false, partial: false, status: null,
           noRule: empty,
-          noMatch: !empty,
+          expiredRule: expired,
+          noMatch: !empty && !expired,
         }
       }
 
@@ -172,7 +222,12 @@ export function simulate(cards, expensesByCard, query, isSmallPay = () => false)
         capped: hit.reward <= EPS, // 有規則但拿不到＝已封頂
         partial: hit.reward > EPS && hit.reward < ideal - EPS, // 剛好卡在上限上，只拿到一部分
         status: ruleStatus(hit.rule, usedMap[hit.rule.id] || 0),
+        // 指定商家規則命中時標明是哪個關鍵字中的——雙向包含有誤判可能，要讓使用者看得到
+        hitKeyword: merchantHit(hit.rule, ctx.merchant),
+        // 剩幾天到期（null＝無期限）：UI 只在剩 EXPIRY_SOON_DAYS 天內轉紅字
+        expiresIn: daysToExpiry(hit.rule, ctx.date),
         noRule: false,
+        expiredRule: null,
         noMatch: false,
         // 落到較低的規則＝高趴數那條已經滿了
         downgraded: bestRate > Number(hit.rule.rate),

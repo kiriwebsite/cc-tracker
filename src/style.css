@@ -358,7 +358,22 @@ input { font-size: 16px; }
   margin-top: 8px; font-variant-numeric: tabular-nums;
 }
 .sim-best-rule { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+/* 首選卡裡的行動按鈕：實心 accent，照片模式下不必另外處理對比 */
+.sim-record {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+.sim-record:active { filter: brightness(.92); }
 .sim-warn { margin-top: 10px; font-size: 13px; color: var(--danger); font-weight: 600; }
+/* 特約商家命中與條件提醒：資訊性，不用警示色 */
+.sim-cond { margin-top: 8px; font-size: 13px; color: var(--text-dim); font-weight: 600; }
 
 .sim-none {
   background: var(--surface); border-radius: var(--radius);
@@ -697,6 +712,10 @@ input { font-size: 16px; }
   outline: none;
 }
 .text-field:focus { border-color: var(--accent); }
+/* placeholder 統一色：不明寫的話各家瀏覽器自帶的灰深淺不一，
+   跟自製欄位（.df-ph）的提示字對不起來。opacity 是為了壓掉 Firefox 的預設半透明 */
+.text-field::placeholder,
+.two-col input::placeholder { color: var(--text-dim); opacity: 1; }
 
 .chip-row {
   display: flex;
@@ -797,6 +816,67 @@ input { font-size: 16px; }
   margin-top: 10px;
 }
 .rule-box .field-label { margin-top: 12px; }
+.rule-textarea { font: inherit; line-height: 1.5; resize: vertical; min-height: 64px; }
+.rule-hint { font-size: 12px; color: var(--text-dim); margin: 6px 2px 0; line-height: 1.5; }
+
+/* ── 自製日期選擇器（DateField）───────────────── */
+.df-trigger {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.df-trigger.df-ph { color: var(--text-dim); }
+.df-caret { font-size: 10px; color: var(--text-dim); }
+
+.df-panel {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.df-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.df-month { font-size: 16px; font-weight: 700; }
+.df-nav {
+  width: 34px; height: 34px;
+  border: none; border-radius: 10px;
+  background: transparent; color: var(--text);
+  font-size: 20px; line-height: 1;
+}
+.df-nav:active { background: var(--accent-soft); }
+
+/* minmax(0, 1fr)：預設的 1fr 下限是 min-content，格子會被自己的內容撐爆版面 */
+.df-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.df-wd { text-align: center; font-size: 12px; color: var(--text-dim); padding: 4px 0; }
+.df-day {
+  height: 40px;
+  border: none; border-radius: 10px;
+  background: transparent; color: var(--text);
+  font: inherit; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.df-day:active { background: var(--accent-soft); }
+/* 今天用外框、選中用實心：兩個同時出現時仍分得出來 */
+.df-day.today { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.df-day.on { background: var(--accent); color: #fff; font-weight: 700; }
+
+.df-foot { display: flex; justify-content: space-between; margin-top: 6px; }
+.df-lite {
+  border: none; background: transparent;
+  color: var(--accent); font: inherit; font-size: 13px; font-weight: 600;
+  padding: 6px 4px;
+}
+
 .rule-top { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; }
 .rule-top b { font-size: 14px; }
 .rule-del { font-size: 13px; color: var(--danger); padding: 4px 6px; font-weight: 600; }
@@ -975,8 +1055,6 @@ body.has-photo::before {
 .has-photo .sim-best,
 .has-photo .sim-none,
 .has-photo .sim-row,
-/* 只有試算頁那顆坐在照片上；規則編輯裡的 .toggle-row 在 sheet 內，不能套 */
-.has-photo .sim-toggle,
 .has-photo .btn-block {
   background: rgba(255, 255, 255, .2);
   backdrop-filter: blur(3px) saturate(170%) brightness(.9);
@@ -1003,7 +1081,6 @@ body.has-photo::before {
 .has-photo .sim-none-big,
 .has-photo .sim-name,
 .has-photo .sim-amt,
-.has-photo .sim-toggle .toggle-text,
 .has-photo .select-pill { color: #fff; }
 
 /* 次要文字用降透明度的白，不要用灰——灰在半透明玻璃上會糊掉 */
@@ -1018,8 +1095,8 @@ body.has-photo::before {
 .has-photo .sim-best-rule,
 .has-photo .sim-none-sub,
 .has-photo .sim-sub,
+.has-photo .sim-cond,
 .has-photo .sim-amt.zero,
-.has-photo .sim-toggle .toggle-text em,
 .has-photo .inline-input { color: rgba(255, 255, 255, .7); }
 
 .has-photo .row-btn.danger { color: #ff7b80; }
@@ -1027,9 +1104,6 @@ body.has-photo::before {
 .has-photo .sim-warn,
 .has-photo .sim-hits,
 .has-photo .hot { color: #ff9296; }
-/* 勾選框在玻璃上：未勾的邊框要看得見，勾了要夠實 */
-.has-photo .sim-toggle .toggle-box { background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .45); }
-.has-photo .sim-toggle .toggle-box.on { background: #fff; border-color: #fff; color: var(--accent); }
 
 /* 試算頁把 sheet 用的輸入元件搬到照片上，要一起玻璃化 */
 .has-photo .sim-page .amount-input input,
@@ -1077,7 +1151,6 @@ body.has-photo::before {
 .photo-light .sim-none-big,
 .photo-light .sim-name,
 .photo-light .sim-amt,
-.photo-light .sim-toggle .toggle-text,
 .photo-light .back-btn,
 .photo-light .select-pill { color: var(--text); }
 
@@ -1092,11 +1165,11 @@ body.has-photo::before {
 .photo-light .sim-best-rule,
 .photo-light .sim-none-sub,
 .photo-light .sim-sub,
+.photo-light .sim-cond,
 .photo-light .sim-amt.zero,
-.photo-light .sim-toggle .toggle-text em,
 .photo-light .inline-input { color: #414a57; }
 
-/* 亮圖時警示回到深紅，並把勾選框還原成深色系 */
+/* 亮圖時警示回到深紅 */
 .photo-light .sim-warn,
 .photo-light .sim-hits,
 .photo-light .hot { color: var(--danger); }
@@ -1108,8 +1181,6 @@ body.has-photo::before {
 .photo-light .sim-page .amount-input input::placeholder,
 .photo-light .sim-page .text-field::placeholder { color: rgba(23, 24, 28, .45); }
 .photo-light .sim-page .chip.on { color: var(--text); }
-.photo-light .sim-toggle .toggle-box { background: rgba(255, 255, 255, .55); border-color: rgba(23, 24, 28, .28); }
-.photo-light .sim-toggle .toggle-box.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .photo-light .row-btn.danger { color: var(--danger); }
 

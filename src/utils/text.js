@@ -21,6 +21,19 @@ export const normalizeChannel = (s) =>
 export const matchKey = (s) => normalizeChannel(s).replace(/\s+/g, '').toLowerCase()
 
 /**
+ * 批次貼上的清單切割：換行、逗號（含全形）、頓號、分號都當分隔符，
+ * 切完正規化、去空白、去重。卡片的指定商家清單用——
+ * 從銀行官網或 PDF 複製一整串貼上就能吃。
+ */
+export const splitList = (s) =>
+  [...new Set(
+    String(s || '')
+      .split(/[\n\r,，、;；]+/)
+      .map(normalizeChannel)
+      .filter(Boolean),
+  )]
+
+/**
  * NFKC 蓋不到的異體字。康熙部首（U+2F00–U+2FDF）NFKC 會轉回正常漢字，
  * 但「CJK 部首補充」（U+2E80–U+2EFF，例如 ⺠）沒有相容分解，轉不掉——
  * 這種字混在通路名稱裡會讓比對永遠失敗，而且失敗方向是「當成不是小額支付」

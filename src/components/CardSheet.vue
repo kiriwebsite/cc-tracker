@@ -3,9 +3,11 @@ import { ref, watch, computed, nextTick } from 'vue'
 import { store, addCard, updateCard, removeCard, newRule } from '../composables/useStore'
 import { CARD_COLORS } from '../data/categories'
 import { CAP_TYPES, capLabel } from '../utils/rewards'
+import { splitList } from '../utils/text'
 import { shade } from '../utils/date'
 import { toast } from '../composables/useToast'
 import BottomSheet from './BottomSheet.vue'
+import DateField from './DateField.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -45,8 +47,14 @@ watch(
     last4.value = c ? c.last4 || '' : ''
     color.value = c ? c.color : CARD_COLORS[store.cards.length % CARD_COLORS.length]
     image.value = c ? c.image || null : null
-    // 深拷貝：面板裡改規則不該即時寫進 store，取消要能真的取消
-    rules.value = c ? JSON.parse(JSON.stringify(c.rules || [])) : []
+    // 深拷貝：面板裡改規則不該即時寫進 store，取消要能真的取消。
+    // merchantsText 是編輯用的暫存欄位（textarea 是一串字），存檔時才切回陣列
+    rules.value = c
+      ? JSON.parse(JSON.stringify(c.rules || [])).map((r) => ({
+          ...r,
+          merchantsText: (r.merchants || []).join('、'),
+        }))
+      : []
     err.value = ''
 
     await nextTick()
@@ -64,15 +72,8 @@ function onLast4(ev) {
   if (ev.target.value !== v) ev.target.value = v
 }
 
-const addRuleRow = () => rules.value.push(newRule())
+const addRuleRow = () => rules.value.push({ ...newRule(), merchantsText: '' })
 const removeRuleRow = (id) => (rules.value = rules.value.filter((r) => r.id !== id))
-
-/** 分類多選：一條都不選＝一般消費（什麼分類都適用） */
-function toggleCat(rule, catId) {
-  const i = rule.categories.indexOf(catId)
-  if (i >= 0) rule.categories.splice(i, 1)
-  else rule.categories.push(catId)
-}
 
 function submit() {
   const n = name.value.trim()
@@ -100,10 +101,12 @@ function submit() {
     last4: last4.value.trim(),
     color: color.value,
     image: image.value,
-    rules: rules.value.map((r) => ({
+    rules: rules.value.map(({ merchantsText, ...r }) => ({
       ...r,
       rate: Number(r.rate),
       capAmount: r.capType === 'none' ? 0 : Number(r.capAmount),
+      merchants: splitList(merchantsText),
+      note: (r.note || '').trim(),
     })),
   }
 
@@ -254,19 +257,17 @@ function del() {
         autocomplete="off"
       />
 
-      <label class="field-label">適用分類（都不選＝一般消費）</label>
-      <div class="chip-row wrap">
-        <button
-          v-for="c in store.categories"
-          :key="c.id"
-          type="button"
-          class="chip"
-          :class="{ on: r.categories.includes(c.id) }"
-          @click="toggleCat(r, c.id)"
-        >
-          {{ c.emoji }} {{ c.name }}
-        </button>
-      </div>
+      <label class="field-label">指定商家（不填＝一般消費都適用；一行一個，逗號、頓號分隔也可以）</label>
+      <textarea
+        v-model="r.merchantsText"
+        class="text-field rule-textarea"
+        rows="3"
+        placeholder="例：肯德基、麥當勞、星巴克&#10;整串特約商店清單直接貼上也行"
+      ></textarea>
+      <p v-if="r.merchantsText.trim()" class="rule-hint">
+        有填商家時，這條規則只給清單裡的店回饋。
+        特約店若常被歸為小額支付，記得把下面的「排除小額支付」關掉。
+      </p>
 
       <label class="field-label">回饋 %</label>
       <input
@@ -315,6 +316,20 @@ function del() {
           <em>電子票證加值、行動支付這類通路不給回饋</em>
         </span>
       </button>
+
+      <label class="field-label">條件提醒（選填，試算時顯示）</label>
+      <input
+        v-model="r.note"
+        type="text"
+        class="text-field"
+        placeholder="例：需綁 LINE Pay／記得切換○○方案"
+        maxlength="30"
+        autocomplete="off"
+      />
+
+      <label class="field-label">回饋到期日（選填）</label>
+      <DateField v-model="r.expiry" placeholder="不填＝長期有效" />
+      <p v-if="r.expiry" class="rule-hint">過了這天，試算就不會再用這條規則算回饋。</p>
     </div>
 
     <button v-if="editing" type="button" class="btn-delete" @click="del">刪除這張卡</button>

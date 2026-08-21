@@ -53,7 +53,7 @@ function capText(a) {
       <!-- 回饋額度進度：快滿或已滿轉紅 -->
       <div v-if="r.alert" class="cc-cap" :class="{ hot: r.alert.near || r.alert.full }">
         <div class="cc-cap-row">
-          <span class="cc-cap-name">{{ ruleLabel(r.alert.rule) }}</span>
+          <span class="cc-cap-name">{{ ruleLabel(r.alert.rule) }} {{ r.alert.rule.rate }}%</span>
           <span class="cc-cap-left">{{ capText(r.alert) }}</span>
         </div>
         <div class="cc-cap-bar"><i :style="{ width: r.alert.ratio * 100 + '%' }"></i></div>

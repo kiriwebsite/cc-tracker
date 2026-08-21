@@ -10,6 +10,9 @@ import BottomSheet from './BottomSheet.vue'
 const props = defineProps({
   open: { type: Boolean, default: false },
   editId: { type: String, default: null },
+  // 從試算頁「就刷這張」帶過來的預填值：金額、卡片、商家、小額判定。
+  // 分類不預填——試算不看分類，讓使用者自己挑，總覽的統計才不會全擠在同一類
+  prefill: { type: Object, default: null },
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -36,16 +39,20 @@ watch(
     if (!open) return
 
     const e = editing.value
-    amount.value = e ? String(e.amount) : ''
-    cardId.value = e ? e.cardId : lastUsedCardId()
+    const pf = e ? null : props.prefill
+
+    amount.value = e ? String(e.amount) : pf?.amount != null ? String(pf.amount) : ''
+    cardId.value = e ? e.cardId : pf?.cardId ?? lastUsedCardId()
     category.value = e ? e.category : store.categories[0]?.id ?? null
     date.value = e ? e.date : ymd(new Date())
     note.value = e ? e.note || '' : ''
-    merchant.value = e ? e.merchant || '' : ''
-    smallPay.value = e ? e.smallPay === true : false
+    merchant.value = e ? e.merchant || '' : pf?.merchant || ''
+    smallPay.value = e ? e.smallPay === true : pf?.smallPay === true
     err.value = ''
 
-    // 等面板滑上來再聚焦，否則 iOS 鍵盤會把動畫卡住
+    // 等面板滑上來再聚焦，否則 iOS 鍵盤會把動畫卡住。
+    // 金額已經帶好時不聚焦：跳鍵盤只會擋住要挑的分類
+    if (pf?.amount != null) return
     await nextTick()
     setTimeout(() => amountInput.value?.focus(), 320)
   },

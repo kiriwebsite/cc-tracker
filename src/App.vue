@@ -21,17 +21,17 @@ const month = ref(currentMonth())
 // 明細不再是獨立分頁，而是從總覽的各卡小計點進去看某張卡的消費
 const listCard = ref('all')
 
-const expenseSheet = ref({ open: false, editId: null })
+const expenseSheet = ref({ open: false, editId: null, prefill: null })
 const cardSheet = ref({ open: false, editId: null })
 const categorySheet = ref({ open: false, editId: null })
 
-function openExpense(editId = null) {
+function openExpense(editId = null, prefill = null) {
   if (!store.cards.length) {
     toast('請先新增一張信用卡')
     page.value = 'cards'
     return
   }
-  expenseSheet.value = { open: true, editId }
+  expenseSheet.value = { open: true, editId, prefill }
 }
 
 function openCard(editId = null) {
@@ -45,7 +45,7 @@ watch(page, () => window.scrollTo(0, 0))
   <div class="app">
     <!-- :key 讓每次切頁都重掛一次，進場 animation 才會重播 -->
     <section :key="page" class="page">
-      <SimulatePage v-if="page === 'simulate'" />
+      <SimulatePage v-if="page === 'simulate'" @record="openExpense(null, $event)" />
 
       <template v-else-if="page === 'summary'">
         <MonthNav v-model="month" />
@@ -84,7 +84,8 @@ watch(page, () => window.scrollTo(0, 0))
   <ExpenseSheet
     :open="expenseSheet.open"
     :edit-id="expenseSheet.editId"
-    @close="expenseSheet = { open: false, editId: null }"
+    :prefill="expenseSheet.prefill"
+    @close="expenseSheet = { open: false, editId: null, prefill: null }"
     @saved="month = $event"
   />
 

@@ -1,15 +1,17 @@
 <script setup>
-// 刷卡前試算：輸入這筆要刷多少、什麼分類，回答「該刷哪張卡、回饋到沒有」。
+// 刷卡前試算：輸入這筆要刷多少、在哪家店，回答「該刷哪張卡、回饋到沒有」。
 // 這是這個 app 的主功能——不是記帳，是刷之前的決策。
-import { ref, computed } from 'vue'
-import { store, money, simulateCards, ruleLabel } from '../composables/useStore'
-import { currentMonth } from '../utils/date'
+import { ref, computed, watch } from 'vue'
+import { store, money, simulateCards, ruleLabel, searchSmallPay, cardThumb } from '../composables/useStore'
+import { currentMonth, parseDate } from '../utils/date'
+import { EXPIRY_SOON_DAYS } from '../utils/rewards'
 import EmptyState from './EmptyState.vue'
 import SmallPaySearchSheet from './SmallPaySearchSheet.vue'
 
+const emit = defineEmits(['record'])
+
 const amount = ref('')
-const category = ref(store.categories[0]?.id ?? null)
-const smallPay = ref(false)
+const merchant = ref('')
 const searchOpen = ref(false)
 
 const amt = computed(() => {
@@ -17,13 +19,66 @@ const amt = computed(() => {
   return isFinite(n) && n > 0 ? n : 0
 })
 
-// 試算一律用當月：要刷的是現在這筆，跟總覽在看哪個月無關
+// 商家輸入停 250ms 才定稿：名單有上萬筆，不要每敲一鍵就整份掃一次。
+// checking 撐起「比對名單中…」的過場——掃描其實很快，但輸入到一半的
+// 半截店名比出來的結果會亂跳，寧可顯示過場也不要閃爍的錯誤結論。
+const settled = ref('')
+const checking = ref(false)
+let debounce
+watch(merchant, (v) => {
+  checking.value = true
+  clearTimeout(debounce)
+  debounce = setTimeout(() => {
+    settled.value = v.trim()
+    checking.value = false
+  }, 250)
+}, { immediate: false })
+
+/**
+ * 自動比對小額支付名單（2026-08-21 使用者定案：取代手動勾選）。
+ * 比對方向＝名單全名包含輸入的店名；誤判靠透明化擋——命中幾筆、
+ * 第一筆是誰都顯示出來，使用者看得到就抓得到。
+ */
+const spMatch = computed(() =>
+  settled.value && store.smallPay?.count ? searchSmallPay(settled.value, 1) : null,
+)
+const isSmallPayHit = computed(() => (spMatch.value?.total || 0) > 0)
+
+// 試算一律用當月：要刷的是現在這筆，跟總覽在看哪個月無關。
+// 金額、商家都齊了才算——商家是比對規則與小額名單的依據，缺了會全錯。
 const results = computed(() =>
-  amt.value ? simulateCards({ amount: amt.value, category: category.value, smallPay: smallPay.value }, currentMonth()) : [],
+  amt.value && settled.value && !checking.value
+    ? simulateCards(
+        { amount: amt.value, smallPay: isSmallPayHit.value, merchant: settled.value },
+        currentMonth(),
+      )
+    : [],
 )
 
 const best = computed(() => (results.value[0]?.reward > 0 ? results.value[0] : null))
 const rest = computed(() => (best.value ? results.value.slice(1) : results.value))
+
+/**
+ * 刷完直接記一筆：把試算的條件原封帶進記帳面板（金額、卡片、商家、小額判定）。
+ * 不直接寫進資料——分類要使用者自己挑，日期也可能要改，讓他按下儲存才算數。
+ */
+function recordBest() {
+  emit('record', {
+    amount: amt.value,
+    cardId: best.value.card.id,
+    merchant: settled.value,
+    smallPay: isSmallPayHit.value,
+  })
+}
+
+/** 到期日寫成「9/30」，整串 2026-09-30 在一行提醒裡太佔位 */
+function expiryLabel(s) {
+  const d = parseDate(s)
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+/** 快到期才提醒：還有一個月的優惠天天跳紅字，看久了就沒人理了 */
+const expiringSoon = (r) => r.expiresIn != null && r.expiresIn <= EXPIRY_SOON_DAYS
 
 /** 額度還剩多少——講剩餘比講已用有用，因為使用者要決定還能不能刷 */
 function roomText(r) {
@@ -53,27 +108,25 @@ function roomText(r) {
       <input v-model="amount" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
     </div>
 
-    <label class="field-label">分類</label>
-    <div class="chip-row wrap">
-      <button
-        v-for="c in store.categories"
-        :key="c.id"
-        type="button"
-        class="chip"
-        :class="{ on: category === c.id }"
-        @click="category = c.id"
-      >
-        {{ c.emoji }} {{ c.name }}
-      </button>
-    </div>
+    <label class="field-label" for="sim-merchant">商家名稱</label>
+    <input
+      id="sim-merchant"
+      v-model="merchant"
+      type="text"
+      class="text-field"
+      placeholder="例：肯德基——自動比對各卡規則與小額支付名單"
+      autocomplete="off"
+    />
 
-    <button type="button" class="toggle-row sim-toggle" @click="smallPay = !smallPay">
-      <span class="toggle-box" :class="{ on: smallPay }">{{ smallPay ? '✓' : '' }}</span>
-      <span class="toggle-text">
-        視為小額支付
-        <em>多數卡的回饋條款把這類排除在外</em>
+    <!-- 小額支付改自動判定：命中名單就標出來（含命中的是哪一筆），
+         有排除小額的規則會直接被擋掉，不用再手動勾 -->
+    <div v-if="checking" class="sim-cond">比對小額支付名單中…</div>
+    <div v-else-if="settled && store.smallPay?.count" class="sim-cond">
+      <span v-if="isSmallPayHit" class="hot">
+        ⚠ 在小額支付名單內：{{ spMatch.hits[0] }}{{ spMatch.total > 1 ? ` 等 ${spMatch.total} 筆` : '' }}
       </span>
-    </button>
+      <span v-else>✓ 不在小額支付名單內</span>
+    </div>
 
     <!-- 不用 v-if 藏起來：藏了就沒人知道有這個功能，實際上讓人困惑了兩次。
          還沒匯入名單也照樣顯示，點進去面板會說要先去匯入 -->
@@ -81,21 +134,30 @@ function roomText(r) {
       {{ store.smallPay?.count ? '查這家店在不在小額支付名單裡 ›' : '匯入小額支付名單後可在這裡查通路 ›' }}
     </button>
 
-    <!-- 還沒輸入金額：先別急著列一堆卡 -->
-    <p v-if="!amt" class="sim-hint">輸入金額就會告訴你該刷哪張、回饋多少。</p>
+    <!-- 金額和商家都還沒齊：先別急著列一堆卡 -->
+    <p v-if="!amt || !settled" class="sim-hint">輸入金額和商家名稱，就會告訴你該刷哪張、回饋多少。</p>
+    <p v-else-if="checking" class="sim-hint">比對名單中…</p>
 
     <template v-else>
       <!-- 首選 -->
       <div v-if="best" class="sim-best">
         <div class="sim-best-label">建議刷這張</div>
         <div class="sim-best-name">
-          <span class="dot" :style="{ background: best.card.color }"></span>
+          <span class="dot" :style="cardThumb(best.card)"></span>
           {{ best.card.name }}
           <small v-if="best.card.last4">•••• {{ best.card.last4 }}</small>
         </div>
         <div class="sim-best-reward">回饋 {{ money(best.reward) }}</div>
         <div class="sim-best-rule">
-          {{ ruleLabel(best.rule) }} ・ {{ roomText(best) }}
+          {{ ruleLabel(best.rule) }} ・ {{ best.rule.rate }}% ・ {{ roomText(best) }}
+        </div>
+        <div v-if="best.hitKeyword || best.rule.note" class="sim-cond">
+          <template v-if="best.hitKeyword">✓ 特約商家「{{ best.hitKeyword }}」</template>
+          <template v-if="best.hitKeyword && best.rule.note"> ・ </template>
+          <template v-if="best.rule.note">📌 {{ best.rule.note }}</template>
+        </div>
+        <div v-if="expiringSoon(best)" class="sim-warn">
+          ⚠ 這個回饋 {{ expiryLabel(best.rule.expiry) }} 到期{{ best.expiresIn > 0 ? `，只剩 ${best.expiresIn} 天` : '，今天最後一天' }}
         </div>
         <div v-if="best.downgraded" class="sim-warn">
           ⚠ {{ best.bestRate }}% 那條額度已用完，這筆只能吃 {{ best.rule.rate }}%
@@ -106,13 +168,22 @@ function roomText(r) {
         <div v-else-if="best.status?.near" class="sim-warn">
           ⚠ 這條額度快滿了
         </div>
+
+        <button type="button" class="sim-record" @click="recordBest">
+          就刷這張，記一筆
+        </button>
       </div>
 
       <!-- 一張都沒回饋 -->
       <div v-else class="sim-none">
         <div class="sim-none-big">這筆沒有任何卡有回饋</div>
         <div class="sim-none-sub">
-          {{ smallPay ? '小額支付被所有規則排除了' : '沒有規則吃這個分類，或是全都已經封頂' }}
+          <template v-if="results.some((r) => r.expiredRule)">
+            有規則本來吃得到，但回饋已經到期了
+          </template>
+          <template v-else>
+            {{ isSmallPayHit ? '小額支付被所有規則排除了' : '沒有規則吃這筆消費，或是全都已經封頂' }}
+          </template>
         </div>
       </div>
 
@@ -124,14 +195,25 @@ function roomText(r) {
           class="sim-row"
           :class="{ dim: r.reward <= 0 }"
         >
-          <span class="dot" :style="{ background: r.card.color }"></span>
+          <span class="dot" :style="cardThumb(r.card)"></span>
           <div class="sim-mid">
             <div class="sim-name">{{ r.card.name }}</div>
             <div class="sim-sub">
               <template v-if="r.noRule">未設回饋規則</template>
-              <template v-else-if="r.noMatch">這類消費沒有回饋</template>
+              <span v-else-if="r.expiredRule" class="hot">
+                {{ ruleLabel(r.expiredRule) }} {{ r.expiredRule.rate }}% 已於 {{ expiryLabel(r.expiredRule.expiry) }} 到期
+              </span>
+              <template v-else-if="r.noMatch">這筆消費沒有回饋</template>
               <span v-else-if="r.capped" class="hot">本月已封頂</span>
-              <template v-else>{{ ruleLabel(r.rule) }} ・ {{ roomText(r) }}</template>
+              <template v-else>{{ ruleLabel(r.rule) }} ・ {{ r.rule.rate }}% ・ {{ roomText(r) }}</template>
+            </div>
+            <div v-if="r.reward > 0 && expiringSoon(r)" class="sim-sub hot">
+              ⚠ {{ expiryLabel(r.rule.expiry) }} 到期
+            </div>
+            <div v-if="r.reward > 0 && (r.hitKeyword || r.rule?.note)" class="sim-sub">
+              <template v-if="r.hitKeyword">✓ 特約「{{ r.hitKeyword }}」</template>
+              <template v-if="r.hitKeyword && r.rule?.note"> ・ </template>
+              <template v-if="r.rule?.note">📌 {{ r.rule.note }}</template>
             </div>
           </div>
           <div class="sim-amt" :class="{ zero: r.reward <= 0 }">
