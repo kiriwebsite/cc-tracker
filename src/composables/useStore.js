@@ -326,6 +326,90 @@ export function applyImport(parsed) {
   if (Array.isArray(parsed.smallPay?.channels)) setSmallPayList(parsed.smallPay.channels)
 }
 
+/* ── 卡片設定同步（電腦編好 → 手機接收）──── */
+
+/**
+ * 要同步過去的東西：卡片、分類、幣別、小額支付名單。
+ * **不含消費紀錄**——使用者的用法是電腦設定、手機記帳，把 expenses 一起蓋過去
+ * 等於每同步一次就抹掉手機上記的帳。完整搬家請用 JSON 備份匯出／匯入。
+ */
+export function exportSettings() {
+  return {
+    v: 1,
+    cards: store.cards,
+    categories: store.categories,
+    currency: store.currency,
+    smallPay: { updatedAt: store.smallPay.updatedAt, channels: spChannels },
+  }
+}
+
+/** 卡片的識別鍵：兩台裝置各自建的卡 id 不會一樣，只能靠人看得懂的欄位認人 */
+const cardKey = (c) => `${(c.name || '').trim()}|${c.last4 || ''}`
+
+/**
+ * 把消費紀錄接回新卡片。
+ *
+ * 兩台裝置各建各的卡，id 天生對不上，不接的話第一次同步就會讓這台
+ * 記的帳全部失聯。先認「卡名＋末四碼」，都對不上再退而求其次認末四碼——
+ * 但只在該末四碼於新舊兩邊都唯一時才敢認，否則寧可留成孤兒讓使用者自己處理，
+ * 把帳掛到錯的卡上比暫時沒掛更糟。
+ */
+function relinkExpenses(oldCards) {
+  const newByKey = new Map(store.cards.map((c) => [cardKey(c), c.id]))
+  const count = (list, pick) =>
+    list.reduce((m, c) => m.set(pick(c), (m.get(pick(c)) || 0) + 1), new Map())
+  const oldLast4 = count(oldCards, (c) => c.last4 || '')
+  const newLast4 = count(store.cards, (c) => c.last4 || '')
+
+  const remap = new Map()
+  for (const old of oldCards) {
+    const byName = newByKey.get(cardKey(old))
+    if (byName) {
+      remap.set(old.id, byName)
+      continue
+    }
+    const l4 = old.last4 || ''
+    if (l4 && oldLast4.get(l4) === 1 && newLast4.get(l4) === 1) {
+      const hit = store.cards.find((c) => (c.last4 || '') === l4)
+      if (hit) remap.set(old.id, hit.id)
+    }
+  }
+
+  const ids = new Set(store.cards.map((c) => c.id))
+  let relinked = 0
+  for (const e of store.expenses) {
+    if (ids.has(e.cardId)) continue
+    const nid = remap.get(e.cardId)
+    if (nid) {
+      e.cardId = nid
+      relinked++
+    }
+  }
+  return { relinked, orphans: store.expenses.filter((e) => !ids.has(e.cardId)).length }
+}
+
+/**
+ * 收下另一台裝置的卡片設定，本機的消費紀錄原封不動。
+ * 回報接回幾筆、還剩幾筆孤兒——孤兒不擅自刪掉（那是使用者的紀錄），但要講出來。
+ */
+export function applySettings(parsed) {
+  if (!parsed || !Array.isArray(parsed.cards)) throw new Error('格式不符')
+
+  const oldCards = store.cards
+  store.cards = readCards(parsed.cards)
+  if (Array.isArray(parsed.categories) && parsed.categories.length) {
+    store.categories = readCategories(parsed.categories)
+  }
+  if (typeof parsed.currency === 'string' && parsed.currency) store.currency = parsed.currency
+  if (Array.isArray(parsed.smallPay?.channels)) setSmallPayList(parsed.smallPay.channels)
+
+  return {
+    cards: store.cards.length,
+    channels: store.smallPay.count,
+    ...relinkExpenses(oldCards),
+  }
+}
+
 export function wipeAll() {
   Object.assign(store, emptyState())
 }

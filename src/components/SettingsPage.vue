@@ -2,8 +2,9 @@
 import { computed, ref } from 'vue'
 import {
   store, serialize, applyImport, markBackedUp, wipeAll, backupFileName, setSmallPayList,
-  smallPayChannels,
+  smallPayChannels, exportSettings, applySettings,
 } from '../composables/useStore'
+import { SYNC_API } from '../config'
 import { cleanPdfLines, hasOddGlyph, pageLinesFirstColumn, guessColumnBoundary } from '../utils/text'
 import { toast } from '../composables/useToast'
 import BottomSheet from './BottomSheet.vue'
@@ -225,6 +226,78 @@ function onCurrencyChange(ev) {
   ev.target.value = store.currency
 }
 
+/* ── 卡片設定同步：電腦上傳拿短碼，手機輸入短碼收下 ── */
+
+const syncOn = !!SYNC_API
+const sending = ref(false)
+const receiving = ref(false)
+const sentCode = ref('')
+const codeInput = ref('')
+const syncErr = ref('')
+const syncNote = ref('')
+
+/** 上傳這台的卡片設定，換一組短碼給另一台輸入 */
+async function sendSettings() {
+  syncErr.value = ''
+  syncNote.value = ''
+  if (!store.cards.length) {
+    syncErr.value = '這台裝置還沒有卡片可以傳'
+    return
+  }
+  sending.value = true
+  try {
+    const res = await fetch(`${SYNC_API}/put`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(exportSettings()),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || `上傳失敗（${res.status}）`)
+    sentCode.value = data.code
+  } catch (e) {
+    syncErr.value = e.message === 'Failed to fetch' ? '連不上同步服務，檢查網路' : e.message
+  } finally {
+    sending.value = false
+  }
+}
+
+/**
+ * 憑短碼收下另一台的卡片設定。
+ * 覆蓋前先問過——卡片會被整組換掉，但這台記的帳會留著。
+ */
+async function receiveSettings() {
+  syncErr.value = ''
+  syncNote.value = ''
+  const code = codeInput.value.replace(/\D/g, '')
+  if (code.length !== 6) {
+    syncErr.value = '短碼是 6 位數字'
+    return
+  }
+  receiving.value = true
+  try {
+    const res = await fetch(`${SYNC_API}/get?code=${code}`)
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || `接收失敗（${res.status}）`)
+
+    const n = Array.isArray(data.cards) ? data.cards.length : 0
+    if (!confirm(`收到 ${n} 張卡的設定。這台現有的卡片設定會被換掉（消費紀錄會保留），確定？`)) {
+      return
+    }
+
+    const r = applySettings(data)
+    codeInput.value = ''
+    toast(`已收下 ${r.cards} 張卡`)
+    syncNote.value = r.relinked ? `另有 ${r.relinked} 筆這台記的帳已接回對應的卡` : ''
+    if (r.orphans) {
+      syncErr.value = `有 ${r.orphans} 筆消費紀錄對不上任何卡片——卡名與末四碼都跟另一台不同。紀錄還留著，改一下卡片名稱再同步一次就會接回去`
+    }
+  } catch (e) {
+    syncErr.value = e.message === 'Failed to fetch' ? '連不上同步服務，檢查網路' : e.message
+  } finally {
+    receiving.value = false
+  }
+}
+
 function confirmWipe() {
   if (!confirm('將清除所有卡片與消費紀錄，且無法復原。確定？')) return
   if (!confirm('真的確定？建議先匯出備份。')) return
@@ -235,6 +308,50 @@ function confirmWipe() {
 
 <template>
   <header class="top"><h1>設定</h1></header>
+
+  <div class="section-title">卡片設定同步</div>
+  <div v-if="!syncOn" class="settings-group">
+    <div class="sync-off">尚未設定同步服務（見 worker/README.md）</div>
+  </div>
+  <template v-else>
+    <div class="settings-group">
+      <button class="row-btn" :disabled="sending" @click="sendSettings">
+        <span>{{ sending ? '上傳中…' : '把卡片設定傳到另一台' }}</span><span class="chev">›</span>
+      </button>
+    </div>
+
+    <div v-if="sentCode" class="sync-code">
+      <div class="sync-code-label">在另一台輸入這組短碼</div>
+      <div class="sync-code-num">{{ sentCode }}</div>
+      <div class="sync-code-hint">15 分鐘內有效</div>
+    </div>
+
+    <div class="settings-group sync-recv">
+      <label class="field-label" for="sync-code">收下另一台的卡片設定</label>
+      <div class="sync-row">
+        <input
+          id="sync-code"
+          v-model="codeInput"
+          class="text-field"
+          type="text"
+          inputmode="numeric"
+          maxlength="6"
+          placeholder="輸入 6 位數短碼"
+          autocomplete="off"
+        />
+        <button class="btn-lite" :disabled="receiving" @click="receiveSettings">
+          {{ receiving ? '接收中…' : '接收' }}
+        </button>
+      </div>
+    </div>
+
+    <p v-if="syncNote" class="hint">{{ syncNote }}</p>
+    <p v-if="syncErr" class="hint warn">{{ syncErr }}</p>
+    <p class="hint">
+      傳的是卡片、規則、分類與小額支付名單，<b>不含消費紀錄</b>——
+      收下設定不會動到這台記的帳。要整包搬家請用下面的 JSON 備份。
+    </p>
+  </template>
 
   <div class="section-title">資料備份</div>
   <div class="settings-group">

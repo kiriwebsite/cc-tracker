@@ -16,6 +16,8 @@
   --danger: #d92d20;
   --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px rgba(16, 24, 40, .06);
   --radius: 20px;
+  /* 內容寬度上限。桌機的背景照片也吃這個值——照片和內容要切齊 */
+  --app-w: 560px;
   --tabbar-h: 64px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
@@ -44,7 +46,7 @@ button { cursor: pointer; border: none; background: none; }
 input { font-size: 16px; }
 
 .app {
-  max-width: 560px;
+  max-width: var(--app-w);
   margin: 0 auto;
   padding-top: var(--safe-t);
 }
@@ -1015,6 +1017,35 @@ body.has-photo::before {
   background-position: center;
 }
 
+/* ── 桌機：把整個 app 收成中間一條手機寬度的視窗 ──
+   照片鋪滿桌機視窗要放大好幾倍，APOD 原圖撐不住就糊了。所以清晰的那張
+   只鋪 --app-w 這麼寬（跟內容切齊），外圍改用同一張圖模糊放大墊底——
+   本來就要模糊，放大失真在這裡反而看不出來，也省下再挑一個外圍色的問題。
+   內容與 dock 原本就是置中限寬的，不必動。 */
+@media (min-width: 620px) {
+  body.has-photo::before {
+    left: 50%;
+    right: auto;
+    width: var(--app-w);
+    transform: translateX(-50%);
+    /* 讓中間那條的邊緣有交代，不是硬切一刀 */
+    box-shadow: 0 0 80px rgba(0, 0, 0, .55);
+  }
+
+  body.has-photo::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background-image: var(--photo);
+    background-size: cover;
+    background-position: center;
+    filter: blur(48px) brightness(.55) saturate(1.1);
+    /* blur 會把邊緣吃掉一圈透明，放大一點蓋掉 */
+    transform: scale(1.15);
+  }
+}
+
 /* 照片模式：直接坐在背景上的文字轉白（卡片內維持深字白底不動）。
    淡淡的 text-shadow 是在亮部星雲上保命用的，不是光暈 */
 .has-photo .top h1,
@@ -1055,6 +1086,7 @@ body.has-photo::before {
 .has-photo .sim-best,
 .has-photo .sim-none,
 .has-photo .sim-row,
+.has-photo .sync-code,
 .has-photo .btn-block {
   background: rgba(255, 255, 255, .2);
   backdrop-filter: blur(3px) saturate(170%) brightness(.9);
@@ -1075,6 +1107,9 @@ body.has-photo::before {
 /* 注意：只列「直接坐在照片上」的元素。
    BottomSheet 裡的東西（.opt-row 等）背景是不透明淺色，套白字會消失 */
 .has-photo .row-btn,
+.has-photo .sync-off,
+.has-photo .sync-code-num,
+.has-photo .sync-recv .field-label,
 .has-photo .btn-block,
 .has-photo .sim-best-name,
 .has-photo .sim-best-reward,
@@ -1096,6 +1131,8 @@ body.has-photo::before {
 .has-photo .sim-none-sub,
 .has-photo .sim-sub,
 .has-photo .sim-cond,
+.has-photo .sync-code-label,
+.has-photo .sync-code-hint,
 .has-photo .sim-amt.zero,
 .has-photo .inline-input { color: rgba(255, 255, 255, .7); }
 
@@ -1144,6 +1181,9 @@ body.has-photo::before {
 .photo-light .cat-amt,
 .photo-light .ex-cat,
 .photo-light .ex-amt,
+.photo-light .sync-off,
+.photo-light .sync-code-num,
+.photo-light .sync-recv .field-label,
 .photo-light .row-btn { color: var(--text); }
 .photo-light .btn-block,
 .photo-light .sim-best-name,
@@ -1166,6 +1206,8 @@ body.has-photo::before {
 .photo-light .sim-none-sub,
 .photo-light .sim-sub,
 .photo-light .sim-cond,
+.photo-light .sync-code-label,
+.photo-light .sync-code-hint,
 .photo-light .sim-amt.zero,
 .photo-light .inline-input { color: #414a57; }
 
@@ -1222,3 +1264,29 @@ body.has-photo::before {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ── 卡片設定同步 ─────────────────────────── */
+.sync-off { padding: 14px; font-size: 13px; color: var(--text-dim); }
+
+.sync-code {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-top: 10px;
+  text-align: center;
+}
+.sync-code-label { font-size: 12px; color: var(--text-dim); }
+/* 短碼要一眼抄得走：字距拉開、等寬數字，免得 6 和 8 在小字級下看混 */
+.sync-code-num {
+  font-size: 34px; font-weight: 700;
+  letter-spacing: .18em; margin: 6px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+.sync-code-hint { font-size: 12px; color: var(--text-dim); }
+
+.sync-recv { padding: 12px 14px 14px; }
+.sync-recv .field-label { margin-top: 0; }
+.sync-row { display: flex; gap: 8px; align-items: center; }
+.sync-row .text-field { flex: 1; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.sync-row .btn-lite { flex: none; }

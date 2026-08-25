@@ -1,0 +1,8 @@
+name = "cc-tracker-sync"
+main = "index.js"
+compatibility_date = "2026-08-21"
+
+# KV namespace 的 id 由 `wrangler kv namespace create SYNC` 產生後填進來
+[[kv_namespaces]]
+binding = "SYNC"
+id = "c3b74f32ca2e45088e90ce70c5d0758b"
