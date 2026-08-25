@@ -314,7 +314,7 @@ function confirmWipe() {
     <div class="sync-off">尚未設定同步服務（見 worker/README.md）</div>
   </div>
   <template v-else>
-    <div class="settings-group">
+    <div class="settings-group sync-send">
       <button class="row-btn" :disabled="sending" @click="sendSettings">
         <span>{{ sending ? '上傳中…' : '把卡片設定傳到另一台' }}</span><span class="chev">›</span>
       </button>

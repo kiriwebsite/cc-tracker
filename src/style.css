@@ -1009,6 +1009,10 @@ body.has-photo::before {
   position: fixed;
   inset: 0;
   z-index: -1;
+  /* 照片是逐行解碼的，還沒畫到的那截會透出頁面底色（淺灰），
+     在深色星空下方就是一條刺眼的亮邊，看起來像破版。先鋪一層跟遮罩
+     同色系的底把它蓋掉，載入過程就只剩「照片由上往下浮現」 */
+  background-color: #0a0c12;
   /* 遮罩深淺由 useApod 依偵測結果設定；預設值給備援路徑用 */
   background-image:
     linear-gradient(var(--scrim-1, rgba(10, 12, 18, .38)), var(--scrim-2, rgba(10, 12, 18, .52))),
@@ -1037,6 +1041,7 @@ body.has-photo::before {
     position: fixed;
     inset: 0;
     z-index: -2;
+    background-color: #0a0c12;
     background-image: var(--photo);
     background-size: cover;
     background-position: center;
@@ -1211,6 +1216,9 @@ body.has-photo::before {
 .photo-light .sim-amt.zero,
 .photo-light .inline-input { color: #414a57; }
 
+/* 亮圖的遮罩是白霧，載入中的底色也要跟著翻淺，不然會先閃一下深色 */
+body.has-photo.photo-light::before { background-color: #e7eaee; }
+
 /* 亮圖時警示回到深紅 */
 .photo-light .sim-warn,
 .photo-light .sim-hits,
@@ -1284,6 +1292,9 @@ body.has-photo::before {
   font-variant-numeric: tabular-nums;
 }
 .sync-code-hint { font-size: 12px; color: var(--text-dim); }
+
+/* 兩個框預設會貼在一起，分開一點才看得出是兩件事 */
+.sync-send { margin-bottom: 10px; }
 
 .sync-recv { padding: 12px 14px 14px; }
 .sync-recv .field-label { margin-top: 0; }
