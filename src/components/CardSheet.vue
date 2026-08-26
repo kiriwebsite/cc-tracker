@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed, nextTick } from 'vue'
-import { store, addCard, updateCard, removeCard, newRule } from '../composables/useStore'
+import { store, addCard, updateCard, removeCard, newRule, money } from '../composables/useStore'
 import { CARD_COLORS } from '../data/categories'
 import { CAP_TYPES, REGIONS, capLabel } from '../utils/rewards'
 import { splitList } from '../utils/text'
@@ -55,6 +55,8 @@ watch(
           merchantsText: (r.merchants || []).join('、'),
         }))
       : []
+    // 只有一條就直接攤開——為了一條規則還要點一下展開，比捲動更煩
+    openIds.value = rules.value.length === 1 ? [rules.value[0].id] : []
     err.value = ''
 
     await nextTick()
@@ -72,8 +74,46 @@ function onLast4(ev) {
   if (ev.target.value !== v) ev.target.value = v
 }
 
-const addRuleRow = () => rules.value.push({ ...newRule(), merchantsText: '' })
-const removeRuleRow = (id) => (rules.value = rules.value.filter((r) => r.id !== id))
+/**
+ * 哪幾條規則是展開的。規則一多，整個面板就是一長串表單，要捲很久才找得到
+ * 想改的那條；收起來只留一行摘要，一眼掃得完。
+ * 用獨立的 id 清單而不是往規則物件塞欄位——那份資料等一下要存進 store，
+ * 不該混進純粹的畫面狀態。
+ */
+const openIds = ref([])
+const isOpen = (id) => openIds.value.includes(id)
+const openRule = (id) => {
+  if (!isOpen(id)) openIds.value = [...openIds.value, id]
+}
+const toggleRule = (id) =>
+  (openIds.value = isOpen(id) ? openIds.value.filter((x) => x !== id) : [...openIds.value, id])
+
+/** 收起時顯示的摘要：這條在管什麼、幾 %、有沒有上限，不展開也看得出來 */
+function ruleSummary(r) {
+  const parts = [
+    r.name?.trim() || (splitList(r.merchantsText).length ? '指定商家' : '一般消費'),
+    `${r.rate || 0}%`,
+  ]
+  if (r.region === 'domestic') parts.push('僅國內')
+  else if (r.region === 'overseas') parts.push('僅國外')
+  if (r.capType !== 'none' && Number(r.capAmount) > 0) {
+    parts.push((r.capType === 'spend' ? '消費上限 ' : '回饋上限 ') + money(Number(r.capAmount)))
+  }
+  if (r.stackable) parts.push('可疊加')
+  return parts.join(' ・ ')
+}
+
+// 新加的那條直接展開：加完就是要填，還要再點一下開起來很煩
+function addRuleRow() {
+  const r = { ...newRule(), merchantsText: '' }
+  rules.value.push(r)
+  openIds.value = [...openIds.value, r.id]
+}
+
+const removeRuleRow = (id) => {
+  rules.value = rules.value.filter((r) => r.id !== id)
+  openIds.value = openIds.value.filter((x) => x !== id)
+}
 
 function submit() {
   const n = name.value.trim()
@@ -88,10 +128,12 @@ function submit() {
     const rate = Number(r.rate)
     if (!isFinite(rate) || rate <= 0 || rate > 100) {
       err.value = `規則 ${i + 1}：回饋 % 要填 0～100 之間的數字`
+      openRule(r.id) // 收起來的規則要自己打開，否則報了錯卻看不到是哪一欄
       return
     }
     if (r.capType !== 'none' && !(Number(r.capAmount) > 0)) {
       err.value = `規則 ${i + 1}：選了上限類型就要填上限金額`
+      openRule(r.id)
       return
     }
   }
@@ -242,12 +284,22 @@ function del() {
       沒設規則的卡，試算時不會被推薦。
     </p>
 
-    <div v-for="(r, i) in rules" :key="r.id" class="rule-box">
+    <div v-for="(r, i) in rules" :key="r.id" class="rule-box" :class="{ collapsed: !isOpen(r.id) }">
       <div class="rule-top">
-        <b>規則 {{ i + 1 }}</b>
+        <button
+          type="button"
+          class="rule-toggle"
+          :aria-expanded="isOpen(r.id)"
+          @click="toggleRule(r.id)"
+        >
+          <span class="rule-caret" :class="{ open: isOpen(r.id) }">▾</span>
+          <b>規則 {{ i + 1 }}</b>
+          <span v-if="!isOpen(r.id)" class="rule-sum">{{ ruleSummary(r) }}</span>
+        </button>
         <button type="button" class="rule-del" @click="removeRuleRow(r.id)">刪除</button>
       </div>
 
+      <template v-if="isOpen(r.id)">
       <input
         v-model="r.name"
         type="text"
@@ -356,6 +408,7 @@ function del() {
       <label class="field-label">回饋到期日（選填）</label>
       <DateField v-model="r.expiry" placeholder="不填＝長期有效" />
       <p v-if="r.expiry" class="rule-hint">過了這天，試算就不會再用這條規則算回饋。</p>
+      </template>
     </div>
 
     <button v-if="editing" type="button" class="btn-delete" @click="del">刪除這張卡</button>

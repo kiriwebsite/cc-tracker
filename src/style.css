@@ -880,7 +880,46 @@ input { font-size: 16px; }
 }
 
 .rule-top { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; }
-.rule-top b { font-size: 14px; }
+.rule-top b { font-size: 14px; white-space: nowrap; }
+
+/* 規則收合：規則一多就是一長串表單，收起來只留一行摘要才找得到東西 */
+.rule-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.rule-caret {
+  display: inline-block;
+  /* 固定寬度：旋轉的是字形不是版面，沒框住的話展開／收起會讓標題左右跳一下 */
+  width: 22px;
+  text-align: center;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--text);
+  transition: transform 0.15s;
+}
+/* 展開時朝下、收起時朝右——跟日期選擇器同一套語彙 */
+.rule-caret:not(.open) { transform: rotate(-90deg); }
+/* 摘要吃掉剩下的寬度，長規則名截斷成 …，不要把刪除鍵擠出去 */
+.rule-sum {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 收起時只剩標題列，原本給表單的下內距會變成一截空白 */
+.rule-box.collapsed { padding-bottom: 4px; }
 .rule-del { font-size: 13px; color: var(--danger); padding: 4px 6px; font-weight: 600; }
 /* sheet 內的勾選列跟 rule-box 同層次，不要再壓一層陰影 */
 .rule-box .toggle-row { box-shadow: none; border: 1px solid var(--line); }
