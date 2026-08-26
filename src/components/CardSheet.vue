@@ -266,7 +266,7 @@ function del() {
       ></textarea>
       <p v-if="r.merchantsText.trim()" class="rule-hint">
         有填商家時，這條規則只給清單裡的店回饋。
-        特約店若常被歸為小額支付，記得把下面的「排除小額支付」關掉。
+        特約店若常被歸為小額支付，記得把下面的「一般消費排除小額支付」關掉。
       </p>
 
       <label class="field-label">回饋 %</label>
@@ -312,8 +312,20 @@ function del() {
       >
         <span class="toggle-box" :class="{ on: r.excludeSmallPay }">{{ r.excludeSmallPay ? '✓' : '' }}</span>
         <span class="toggle-text">
-          排除小額支付
-          <em>電子票證加值、行動支付這類通路不給回饋</em>
+          一般消費排除小額支付
+          <em>請參考小額支付名單為準</em>
+        </span>
+      </button>
+
+      <button
+        type="button"
+        class="toggle-row"
+        @click="r.stackable = !r.stackable"
+      >
+        <span class="toggle-box" :class="{ on: r.stackable }">{{ r.stackable ? '✓' : '' }}</span>
+        <span class="toggle-text">
+          可與其他規則疊加
+          <em>基本回饋＋加碼那種，各自吃各自的上限；不勾＝同一筆只擇優取一條</em>
         </span>
       </button>
 

@@ -103,18 +103,34 @@ export function applyRule(rule, amount, used = 0) {
 }
 
 /**
- * 從這張卡的規則裡挑「這筆能拿最多回饋」的那條。
- * 銀行對同一筆通常擇優不疊加，而且使用者要問的就是「最多能拿多少」。
- * 都不適用（或這張卡沒設規則）回 null。
+ * 這筆消費在這張卡上總共能拿多少回饋。
+ * - 勾了 stackable 的規則全部套用，各吃各的額度（基本 1% ＋ 加碼 4% 的常見組合）
+ * - 沒勾的彼此擇優取一條：銀行對同一筆通常不疊加，使用者要問的是「最多能拿多少」
+ * - 兩邊相加＝這筆的回饋
+ * 舊資料沒有 stackable 欄位＝false，行為與加這功能之前完全一致（2026-08-25 使用者定案）。
+ * 都不適用（或這張卡沒設規則）回 null。hits 依回饋由大到小排，UI 照順序列即可。
  */
-export function bestRule(card, amount, ctx, usedMap = {}) {
+export function applyRules(card, amount, ctx, usedMap = {}) {
+  const hits = []
   let best = null
+
   for (const rule of card.rules || []) {
     if (!ruleMatches(rule, ctx)) continue
     const r = applyRule(rule, amount, usedMap[rule.id] || 0)
-    if (!best || r.reward > best.reward) best = { rule, ...r }
+    if (rule.stackable) hits.push({ rule, ...r })
+    else if (!best || r.reward > best.reward) best = { rule, ...r }
   }
-  return best
+  // 擇優群的冠軍也要放進來：即使回饋是 0（封頂）也留著，UI 靠它講「本月已封頂」
+  if (best) hits.push(best)
+  if (!hits.length) return null
+
+  hits.sort((a, b) => b.reward - a.reward || Number(b.rule.rate) - Number(a.rule.rate))
+  return {
+    hits,
+    reward: hits.reduce((a, h) => a + h.reward, 0),
+    // 疊加時「真的吃到回饋的消費額」取最大的那條——spend 型封頂的提示要用
+    counted: Math.max(...hits.map((h) => h.counted)),
+  }
 }
 
 /**
@@ -134,11 +150,12 @@ export function monthUsage(card, expenses, isSmallPay = () => false) {
     const smallPay = isSmallPay(e)
     // 商店欄位也餵進去：記過帳的特約消費要吃掉商家規則的額度，試算剩餘才會準。
     // 到期日用消費當天判斷，不是今天——否則優惠一過期，之前刷的都會被倒扣
-    const hit = bestRule(card, e.amount, { smallPay, merchant: e.merchant, date: e.date }, usedMap)
-    if (hit) usedMap[hit.rule.id] += hit.add
+    const hit = applyRules(card, e.amount, { smallPay, merchant: e.merchant, date: e.date }, usedMap)
+    // 疊加時每條各記各的用量：1% 那條吃 1% 的額度，4% 那條吃 4% 的
+    if (hit) for (const h of hit.hits) usedMap[h.rule.id] += h.add
     lines.push({
       expense: e,
-      rule: hit?.rule || null,
+      rules: hit ? hit.hits.map((h) => h.rule) : [],
       reward: hit?.reward || 0,
       smallPay,
       // 有適用規則但一毛都沒拿到＝額度已經用完
@@ -189,7 +206,7 @@ export function simulate(cards, expensesByCard, query, isSmallPay = () => false)
   return cards
     .map((card) => {
       const { usedMap } = monthUsage(card, expensesByCard[card.id] || [], isSmallPay)
-      const hit = bestRule(card, amount, ctx, usedMap)
+      const hit = applyRules(card, amount, ctx, usedMap)
 
       if (!hit) {
         // 沒有規則吃這筆。這幾種要分開講：完全沒設規則是「去設定」，
@@ -199,39 +216,50 @@ export function simulate(cards, expensesByCard, query, isSmallPay = () => false)
           .filter((r) => isExpired(r, ctx.date) && matchesIgnoringExpiry(r, ctx))
           .sort((a, b) => Number(b.rate) - Number(a.rate))[0] || null
         return {
-          card, rule: null, reward: 0, counted: 0, capped: false, partial: false, status: null,
+          card, rules: [], reward: 0, counted: 0, capped: false, stacked: false,
           noRule: empty,
           expiredRule: expired,
           noMatch: !empty && !expired,
+          downgraded: false, bestRate: 0, pickedRate: 0,
         }
       }
 
-      const ideal = (amount * Number(hit.rule.rate)) / 100
+      // 擇優群裡本來有更高趴數的規則，卻沒被選中＝那條已經封頂了。
+      // 只看擇優群：疊加的規則本來就每條都算，不存在「被擠掉」的問題。
+      const pickRates = (card.rules || [])
+        .filter((r) => !r.stackable && ruleMatches(r, ctx))
+        .map((r) => Number(r.rate) || 0)
+      const bestRate = pickRates.length ? Math.max(...pickRates) : 0
+      const picked = hit.hits.find((h) => !h.rule.stackable)
+      const pickedRate = picked ? Number(picked.rule.rate) : 0
 
-      // 有更好的規則本來該吃這筆，但已經封頂了——使用者會想知道「本來可以更多」
-      const bestRate = Math.max(
-        ...(card.rules || [])
-          .filter((r) => ruleMatches(r, ctx))
-          .map((r) => Number(r.rate) || 0),
-      )
       return {
         card,
-        rule: hit.rule,
+        // 每條命中的規則都給齊顯示要用的資料——疊加時 UI 要全部列出來（使用者定案）
+        rules: hit.hits.map((h) => ({
+          rule: h.rule,
+          reward: h.reward,
+          counted: h.counted,
+          status: ruleStatus(h.rule, usedMap[h.rule.id] || 0),
+          // 指定商家規則命中時標明是哪個關鍵字中的——雙向包含有誤判可能，要讓使用者看得到
+          hitKeyword: merchantHit(h.rule, ctx.merchant),
+          // 剩幾天到期（null＝無期限）：UI 只在剩 EXPIRY_SOON_DAYS 天內轉紅字
+          expiresIn: daysToExpiry(h.rule, ctx.date),
+          capped: h.reward <= EPS,
+          // 剛好卡在上限上，只拿到一部分
+          partial: h.reward > EPS && h.reward < (amount * Number(h.rule.rate)) / 100 - EPS,
+        })),
         reward: hit.reward,
         counted: hit.counted,
-        capped: hit.reward <= EPS, // 有規則但拿不到＝已封頂
-        partial: hit.reward > EPS && hit.reward < ideal - EPS, // 剛好卡在上限上，只拿到一部分
-        status: ruleStatus(hit.rule, usedMap[hit.rule.id] || 0),
-        // 指定商家規則命中時標明是哪個關鍵字中的——雙向包含有誤判可能，要讓使用者看得到
-        hitKeyword: merchantHit(hit.rule, ctx.merchant),
-        // 剩幾天到期（null＝無期限）：UI 只在剩 EXPIRY_SOON_DAYS 天內轉紅字
-        expiresIn: daysToExpiry(hit.rule, ctx.date),
+        capped: hit.reward <= EPS, // 有規則但一毛都拿不到＝全部封頂
+        stacked: hit.hits.length > 1,
         noRule: false,
         expiredRule: null,
         noMatch: false,
         // 落到較低的規則＝高趴數那條已經滿了
-        downgraded: bestRate > Number(hit.rule.rate),
+        downgraded: !!picked && bestRate > pickedRate,
         bestRate,
+        pickedRate,
       }
     })
     .sort((a, b) => b.reward - a.reward || a.card.createdAt - b.card.createdAt)

@@ -148,25 +148,32 @@ function roomText(r) {
           <small v-if="best.card.last4">•••• {{ best.card.last4 }}</small>
         </div>
         <div class="sim-best-reward">回饋 {{ money(best.reward) }}</div>
-        <div class="sim-best-rule">
-          {{ ruleLabel(best.rule) }} ・ {{ best.rule.rate }}% ・ {{ roomText(best) }}
-        </div>
-        <div v-if="best.hitKeyword || best.rule.note" class="sim-cond">
-          <template v-if="best.hitKeyword">✓ 特約商家「{{ best.hitKeyword }}」</template>
-          <template v-if="best.hitKeyword && best.rule.note"> ・ </template>
-          <template v-if="best.rule.note">📌 {{ best.rule.note }}</template>
-        </div>
-        <div v-if="expiringSoon(best)" class="sim-warn">
-          ⚠ 這個回饋 {{ expiryLabel(best.rule.expiry) }} 到期{{ best.expiresIn > 0 ? `，只剩 ${best.expiresIn} 天` : '，今天最後一天' }}
-        </div>
+        <!-- 疊加時每條規則各列一行：使用者要看得到 1% 和 4% 分別給了多少、各自還剩多少額度 -->
+        <template v-for="x in best.rules" :key="x.rule.id">
+          <div class="sim-best-rule">
+            {{ ruleLabel(x.rule) }} ・ {{ x.rule.rate
+            }}%<template v-if="best.stacked"> ・ +{{ money(x.reward) }}</template> ・ {{ roomText(x) }}
+          </div>
+          <div v-if="x.hitKeyword || x.rule.note" class="sim-cond">
+            <template v-if="x.hitKeyword">✓ 特約商家「{{ x.hitKeyword }}」</template>
+            <template v-if="x.hitKeyword && x.rule.note"> ・ </template>
+            <template v-if="x.rule.note">📌 {{ x.rule.note }}</template>
+          </div>
+          <div v-if="expiringSoon(x)" class="sim-warn">
+            ⚠ {{ best.stacked ? `${x.rule.rate}% 這條` : '這個回饋' }} {{ expiryLabel(x.rule.expiry) }} 到期{{ x.expiresIn > 0 ? `，只剩 ${x.expiresIn} 天` : '，今天最後一天' }}
+          </div>
+          <div v-else-if="x.capped && best.stacked" class="sim-warn">
+            ⚠ {{ x.rule.rate }}% 這條本月已封頂，這筆吃不到
+          </div>
+          <div v-else-if="x.partial" class="sim-warn">
+            ⚠ {{ best.stacked ? `${x.rule.rate}% 這條` : '這筆' }}會刷破上限，只有部分金額拿到回饋
+          </div>
+          <div v-else-if="x.status?.near" class="sim-warn">
+            ⚠ {{ best.stacked ? `${x.rule.rate}% 這條` : '這條' }}額度快滿了
+          </div>
+        </template>
         <div v-if="best.downgraded" class="sim-warn">
-          ⚠ {{ best.bestRate }}% 那條額度已用完，這筆只能吃 {{ best.rule.rate }}%
-        </div>
-        <div v-else-if="best.partial" class="sim-warn">
-          ⚠ 這筆會刷破上限，只有部分金額拿到回饋
-        </div>
-        <div v-else-if="best.status?.near" class="sim-warn">
-          ⚠ 這條額度快滿了
+          ⚠ {{ best.bestRate }}% 那條額度已用完，這筆只能吃 {{ best.pickedRate }}%
         </div>
 
         <button type="button" class="sim-record" @click="recordBest">
@@ -205,16 +212,28 @@ function roomText(r) {
               </span>
               <template v-else-if="r.noMatch">這筆消費沒有回饋</template>
               <span v-else-if="r.capped" class="hot">本月已封頂</span>
-              <template v-else>{{ ruleLabel(r.rule) }} ・ {{ r.rule.rate }}% ・ {{ roomText(r) }}</template>
+              <template v-else>
+                <div v-for="x in r.rules" :key="x.rule.id">
+                  {{ ruleLabel(x.rule) }} ・ {{ x.rule.rate
+                  }}%<template v-if="r.stacked"> ・ +{{ money(x.reward) }}</template> ・ {{ roomText(x) }}
+                </div>
+              </template>
             </div>
-            <div v-if="r.reward > 0 && expiringSoon(r)" class="sim-sub hot">
-              ⚠ {{ expiryLabel(r.rule.expiry) }} 到期
-            </div>
-            <div v-if="r.reward > 0 && (r.hitKeyword || r.rule?.note)" class="sim-sub">
-              <template v-if="r.hitKeyword">✓ 特約「{{ r.hitKeyword }}」</template>
-              <template v-if="r.hitKeyword && r.rule?.note"> ・ </template>
-              <template v-if="r.rule?.note">📌 {{ r.rule.note }}</template>
-            </div>
+            <template v-if="r.reward > 0">
+              <div
+                v-for="x in r.rules"
+                :key="`${x.rule.id}-info`"
+                v-show="expiringSoon(x) || x.hitKeyword || x.rule.note"
+                class="sim-sub"
+                :class="{ hot: expiringSoon(x) }"
+              >
+                <template v-if="expiringSoon(x)">⚠ {{ expiryLabel(x.rule.expiry) }} 到期</template>
+                <template v-if="expiringSoon(x) && (x.hitKeyword || x.rule.note)"> ・ </template>
+                <template v-if="x.hitKeyword">✓ 特約「{{ x.hitKeyword }}」</template>
+                <template v-if="x.hitKeyword && x.rule.note"> ・ </template>
+                <template v-if="x.rule.note">📌 {{ x.rule.note }}</template>
+              </div>
+            </template>
           </div>
           <div class="sim-amt" :class="{ zero: r.reward <= 0 }">
             {{ r.reward > 0 ? money(r.reward) : '—' }}
