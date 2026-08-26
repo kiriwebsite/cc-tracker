@@ -2,7 +2,7 @@
 import { ref, watch, computed, nextTick } from 'vue'
 import { store, addCard, updateCard, removeCard, newRule } from '../composables/useStore'
 import { CARD_COLORS } from '../data/categories'
-import { CAP_TYPES, capLabel } from '../utils/rewards'
+import { CAP_TYPES, REGIONS, capLabel } from '../utils/rewards'
 import { splitList } from '../utils/text'
 import { shade } from '../utils/date'
 import { toast } from '../composables/useToast'
@@ -268,6 +268,20 @@ function del() {
         有填商家時，這條規則只給清單裡的店回饋。
         特約店若常被歸為小額支付，記得把下面的「一般消費排除小額支付」關掉。
       </p>
+
+      <label class="field-label">適用範圍</label>
+      <div class="chip-row">
+        <button
+          v-for="t in REGIONS"
+          :key="t.id"
+          type="button"
+          class="chip"
+          :class="{ on: (r.region || 'any') === t.id }"
+          @click="r.region = t.id"
+        >
+          {{ t.label }}
+        </button>
+      </div>
 
       <label class="field-label">回饋 %</label>
       <input

@@ -23,6 +23,13 @@ export const CAP_TYPES = [
   { id: 'spend', label: '消費上限' },
 ]
 
+/** 規則適用範圍：國內外的回饋條件常常不同（國外加碼、或反過來不給） */
+export const REGIONS = [
+  { id: 'any', label: '不限' },
+  { id: 'domestic', label: '僅國內' },
+  { id: 'overseas', label: '僅國外' },
+]
+
 /** 上限金額欄位的說明——兩種型別填的是完全不同的數字，標籤要講清楚 */
 export const capLabel = (capType) =>
   capType === 'spend' ? '每月適用消費上限（元）' : '每月回饋上限（元）'
@@ -64,8 +71,11 @@ export function daysToExpiry(rule, date) {
  * 除了到期日以外都符合嗎——給 UI 分辨「這條本來會中、只是過期了」，
  * 才講得出「回饋已於 X/X 到期」而不是含糊的「這筆沒有回饋」。
  */
-function matchesIgnoringExpiry(rule, { smallPay, merchant }) {
+function matchesIgnoringExpiry(rule, { smallPay, merchant, overseas }) {
   if (smallPay && rule.excludeSmallPay) return false
+  // 適用範圍：舊資料沒有 region 欄位＝不限，行為與加這功能之前一致
+  if (rule.region === 'domestic' && overseas) return false
+  if (rule.region === 'overseas' && !overseas) return false
   if (Array.isArray(rule.merchants) && rule.merchants.length) return !!merchantHit(rule, merchant)
   return true
 }
@@ -73,6 +83,7 @@ function matchesIgnoringExpiry(rule, { smallPay, merchant }) {
 /**
  * 這筆消費適用這條規則嗎？
  * - 排除小額支付一票否決——特約商家也蓋不過，要不要排除由規則自己設
+ * - 適用範圍對不上（規則限國內、這筆是國外，或反過來）也一票否決
  * - 有填 merchants ＝指定商家規則：只認商家命中；沒填＝一般消費，什麼都適用
  * - 過期的規則不給回饋：算錯會讓人刷錯卡，比不算更糟
  * 規則不看分類（2026-08-21 使用者定案）：舊資料的 categories 欄位一律忽略。
@@ -150,7 +161,8 @@ export function monthUsage(card, expenses, isSmallPay = () => false) {
     const smallPay = isSmallPay(e)
     // 商店欄位也餵進去：記過帳的特約消費要吃掉商家規則的額度，試算剩餘才會準。
     // 到期日用消費當天判斷，不是今天——否則優惠一過期，之前刷的都會被倒扣
-    const hit = applyRules(card, e.amount, { smallPay, merchant: e.merchant, date: e.date }, usedMap)
+    const ectx = { smallPay, merchant: e.merchant, date: e.date, overseas: e.overseas === true }
+    const hit = applyRules(card, e.amount, ectx, usedMap)
     // 疊加時每條各記各的用量：1% 那條吃 1% 的額度，4% 那條吃 4% 的
     if (hit) for (const h of hit.hits) usedMap[h.rule.id] += h.add
     lines.push({
@@ -201,7 +213,12 @@ export function tightestStatus(card, usedMap) {
  */
 export function simulate(cards, expensesByCard, query, isSmallPay = () => false) {
   const amount = Number(query.amount) || 0
-  const ctx = { smallPay: !!query.smallPay, merchant: query.merchant || '', date: query.date || '' }
+  const ctx = {
+    smallPay: !!query.smallPay,
+    merchant: query.merchant || '',
+    date: query.date || '',
+    overseas: !!query.overseas,
+  }
 
   return cards
     .map((card) => {

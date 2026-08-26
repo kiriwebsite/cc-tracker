@@ -13,6 +13,8 @@ const emit = defineEmits(['record'])
 const amount = ref('')
 const merchant = ref('')
 const searchOpen = ref(false)
+// 國內／國外自己切，不自動判定：沒有可靠的判斷依據，猜錯會讓人刷錯卡
+const overseas = ref(false)
 
 const amt = computed(() => {
   const n = Number(String(amount.value).replace(/[,\s]/g, ''))
@@ -42,14 +44,20 @@ watch(merchant, (v) => {
 const spMatch = computed(() =>
   settled.value && store.smallPay?.count ? searchSmallPay(settled.value, 1) : null,
 )
-const isSmallPayHit = computed(() => (spMatch.value?.total || 0) > 0)
+// 國外消費不比對小額支付：那份名單是國內通路，比了只會誤判成不給回饋
+const isSmallPayHit = computed(() => !overseas.value && (spMatch.value?.total || 0) > 0)
 
 // 試算一律用當月：要刷的是現在這筆，跟總覽在看哪個月無關。
 // 金額、商家都齊了才算——商家是比對規則與小額名單的依據，缺了會全錯。
 const results = computed(() =>
   amt.value && settled.value && !checking.value
     ? simulateCards(
-        { amount: amt.value, smallPay: isSmallPayHit.value, merchant: settled.value },
+        {
+          amount: amt.value,
+          smallPay: isSmallPayHit.value,
+          merchant: settled.value,
+          overseas: overseas.value,
+        },
         currentMonth(),
       )
     : [],
@@ -68,6 +76,7 @@ function recordBest() {
     cardId: best.value.card.id,
     merchant: settled.value,
     smallPay: isSmallPayHit.value,
+    overseas: overseas.value,
   })
 }
 
@@ -108,6 +117,11 @@ function roomText(r) {
       <input v-model="amount" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
     </div>
 
+    <div class="chip-row">
+      <button type="button" class="chip" :class="{ on: !overseas }" @click="overseas = false">國內</button>
+      <button type="button" class="chip" :class="{ on: overseas }" @click="overseas = true">國外</button>
+    </div>
+
     <label class="field-label" for="sim-merchant">商家名稱</label>
     <input
       id="sim-merchant"
@@ -120,7 +134,15 @@ function roomText(r) {
 
     <!-- 小額支付改自動判定：命中名單就標出來（含命中的是哪一筆），
          有排除小額的規則會直接被擋掉，不用再手動勾 -->
-    <div v-if="checking" class="sim-cond">比對小額支付名單中…</div>
+    <template v-if="overseas">
+      <!-- 手續費只提醒、不進計算：費率各卡不同（1.5% 是常見值不是通則），
+           替使用者假設一個數字塞進回饋只會把結果算錯，寧可讓他自己心裡有數 -->
+      <p class="sim-warn">
+        ⚠ 國外消費多半另收 1.5% 國外交易手續費<template v-if="amt">（這筆約 {{ money(amt * 0.015) }}）</template>，下面算的回饋沒有扣掉
+      </p>
+      <div class="sim-cond">國外消費不比對小額支付名單（那份是國內通路）</div>
+    </template>
+    <div v-else-if="checking" class="sim-cond">比對小額支付名單中…</div>
     <div v-else-if="settled && store.smallPay?.count" class="sim-cond">
       <span v-if="isSmallPayHit" class="hot">
         ⚠ 在小額支付名單內：{{ spMatch.hits[0] }}{{ spMatch.total > 1 ? ` 等 ${spMatch.total} 筆` : '' }}
@@ -188,9 +210,9 @@ function roomText(r) {
           <template v-if="results.some((r) => r.expiredRule)">
             有規則本來吃得到，但回饋已經到期了
           </template>
-          <template v-else>
-            {{ isSmallPayHit ? '小額支付被所有規則排除了' : '沒有規則吃這筆消費，或是全都已經封頂' }}
-          </template>
+          <template v-else-if="isSmallPayHit">小額支付被所有規則排除了</template>
+          <template v-else-if="overseas">沒有卡片的規則吃國外消費，或是全都已經封頂</template>
+          <template v-else>沒有規則吃這筆消費，或是全都已經封頂</template>
         </div>
       </div>
 

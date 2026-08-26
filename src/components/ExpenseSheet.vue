@@ -28,6 +28,8 @@ const amountInput = ref(null)
 
 // 算不算小額支付一律由使用者自己勾——名單只用來查，不用來替他判定
 const smallPay = ref(false)
+// 國內／國外也自己勾：規則分國內外時，額度用量要跟著分開算才準
+const overseas = ref(false)
 
 const editing = computed(() =>
   props.editId ? store.expenses.find((e) => e.id === props.editId) : null,
@@ -48,6 +50,7 @@ watch(
     note.value = e ? e.note || '' : ''
     merchant.value = e ? e.merchant || '' : pf?.merchant || ''
     smallPay.value = e ? e.smallPay === true : pf?.smallPay === true
+    overseas.value = e ? e.overseas === true : pf?.overseas === true
     err.value = ''
 
     // 等面板滑上來再聚焦，否則 iOS 鍵盤會把動畫卡住。
@@ -77,6 +80,7 @@ function submit() {
     note: note.value.trim(),
     merchant: merchant.value.trim(),
     smallPay: smallPay.value,
+    overseas: overseas.value,
   }
 
   if (editing.value) {
@@ -159,6 +163,14 @@ function del() {
       maxlength="40"
       autocomplete="off"
     />
+
+    <button type="button" class="toggle-row" @click="overseas = !overseas">
+      <span class="toggle-box" :class="{ on: overseas }">{{ overseas ? '✓' : '' }}</span>
+      <span class="toggle-text">
+        這筆是國外消費
+        <em>只有適用範圍含國外的規則會給回饋</em>
+      </span>
+    </button>
 
     <button type="button" class="toggle-row" @click="smallPay = !smallPay">
       <span class="toggle-box" :class="{ on: smallPay }">{{ smallPay ? '✓' : '' }}</span>

@@ -164,6 +164,8 @@ export const newRule = () => ({
   excludeSmallPay: true,
   // 可與其他規則疊加：基本回饋＋加碼各吃各的上限。舊資料沒這欄＝false，行為不變
   stackable: false,
+  // 適用範圍 any／domestic／overseas。舊資料沒這欄＝不限，行為不變
+  region: 'any',
   // 擴充點：以後若改成自動抓規則，這裡記來源與抓取時間，手動編輯過的不要被蓋掉
   source: 'manual',
   updatedAt: Date.now(),
