@@ -911,6 +911,13 @@ input { font-size: 16px; }
 }
 /* 展開時朝下、收起時朝右——跟日期選擇器同一套語彙 */
 .rule-caret:not(.open) { transform: rotate(-90deg); }
+/* 到期標記不參與收縮：規則名再長也不能把「已到期」這件事擠掉 */
+.rule-expired {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger);
+}
 /* 摘要吃掉剩下的寬度，長規則名截斷成 …，不要把刪除鍵擠出去 */
 .rule-sum {
   flex: 1;

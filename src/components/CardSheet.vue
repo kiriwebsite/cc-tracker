@@ -2,9 +2,9 @@
 import { ref, watch, computed, nextTick } from 'vue'
 import { store, addCard, updateCard, removeCard, newRule, money } from '../composables/useStore'
 import { CARD_COLORS } from '../data/categories'
-import { CAP_TYPES, REGIONS, capLabel } from '../utils/rewards'
+import { CAP_TYPES, REGIONS, capLabel, isExpired } from '../utils/rewards'
 import { splitList } from '../utils/text'
-import { shade } from '../utils/date'
+import { shade, ymd } from '../utils/date'
 import { toast } from '../composables/useToast'
 import BottomSheet from './BottomSheet.vue'
 import DateField from './DateField.vue'
@@ -101,6 +101,17 @@ function ruleSummary(r) {
   }
   if (r.stackable) parts.push('可疊加')
   return parts.join(' ・ ')
+}
+
+/**
+ * 過期的規則在卡片列表已經不顯示了，設定頁是它唯一會現身的地方——
+ * 收起來時摘要跟正常規則長得一模一樣，不標出來使用者會找不到
+ * 「我明明設了這條，卡片上怎麼沒有」的答案。
+ */
+function expiredLabel(r) {
+  if (!isExpired(r, ymd(new Date()))) return ''
+  const [, m, d] = r.expiry.split('-')
+  return `已於 ${+m}/${+d} 到期`
 }
 
 // 新加的那條直接展開：加完就是要填，還要再點一下開起來很煩
@@ -295,6 +306,10 @@ function del() {
           <span class="rule-caret" :class="{ open: isOpen(r.id) }">▾</span>
           <b>規則 {{ i + 1 }}</b>
           <span v-if="!isOpen(r.id)" class="rule-sum">{{ ruleSummary(r) }}</span>
+          <!-- 到期標記獨立一格且不縮：摘要太長時該被截掉的是摘要，不是這句 -->
+          <span v-if="!isOpen(r.id) && expiredLabel(r)" class="rule-expired">
+            {{ expiredLabel(r) }}
+          </span>
         </button>
         <button type="button" class="rule-del" @click="removeRuleRow(r.id)">刪除</button>
       </div>
@@ -407,7 +422,8 @@ function del() {
 
       <label class="field-label">回饋到期日（選填）</label>
       <DateField v-model="r.expiry" placeholder="不填＝長期有效" />
-      <p v-if="r.expiry" class="rule-hint">過了這天，試算就不會再用這條規則算回饋。</p>
+      <!-- 只有過期才提醒：日期就填在上面那格，還沒到期不必再解釋一次到期會怎樣 -->
+      <p v-if="expiredLabel(r)" class="rule-hint">這條已經到期，試算不會再用它算回饋。</p>
       </template>
     </div>
 
