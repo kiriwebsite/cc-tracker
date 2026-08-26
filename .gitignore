@@ -8,5 +8,5 @@ dev-dist
 public/apod.json
 public/apod.jpg
 
-# 小額支付名單原始 PDF（6.8MB，抽完就存進 app，不需要進版控）
+# 小額支付/排除名單原始 PDF（6.8MB，抽完就存進 app，不需要進版控）
 /*.pdf

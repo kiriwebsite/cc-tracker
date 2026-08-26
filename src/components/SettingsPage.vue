@@ -14,7 +14,7 @@ defineEmits(['edit-category', 'add-category'])
 
 const fileInput = ref(null)
 
-/* ── 小額支付通路名單：使用者每季／每月自己換一份 ── */
+/* ── 小額支付/排除名單：使用者每季／每月自己換一份 ── */
 
 const spOpen = ref(false)
 const spText = ref('')
@@ -123,7 +123,7 @@ async function onSpFile(ev) {
       spPending.value = clean
       spText.value = spBig.value ? '' : clean.join('\n')
       const odd = clean.filter(hasOddGlyph)
-      // 這種字比對一定失敗，而且失敗方向是「當成不是小額支付」＝高估回饋，要講出來
+      // 這種字比對一定失敗，而且失敗方向是「當成不在名單內」＝高估回饋，要講出來
       spWarn.value = odd.length
         ? `有 ${odd.length} 行含無法自動修正的異體字（例：${odd[0].slice(0, 12)}），請手動改成一般寫法，否則比對不到。`
         : ''
@@ -348,7 +348,7 @@ function confirmWipe() {
     <p v-if="syncNote" class="hint">{{ syncNote }}</p>
     <p v-if="syncErr" class="hint warn">{{ syncErr }}</p>
     <p class="hint">
-      傳的是卡片、規則、分類與小額支付名單，<b>不含消費紀錄</b>——
+      傳的是卡片、規則、分類與小額支付/排除名單，<b>不含消費紀錄</b>——
       收下設定不會動到這台記的帳。要整包搬家請用下面的 JSON 備份。
     </p>
   </template>
@@ -379,7 +379,7 @@ function confirmWipe() {
     就會消失，記得定期匯出備份。
   </p>
 
-  <div class="section-title">小額支付名單</div>
+  <div class="section-title">小額支付/排除名單</div>
   <div class="settings-group">
     <button class="row-btn" @click="spSearchOpen = true">
       <span>查詢通路</span><span class="chev">›</span>
@@ -390,7 +390,7 @@ function confirmWipe() {
   </div>
   <p class="hint">
     目前 {{ (store.smallPay?.count || 0).toLocaleString('en-US') }} 筆通路{{ spUpdatedText }}。
-    名單只用來查，不會自動影響回饋：記帳與試算時要不要算成小額支付，由你自己勾。
+    名單只用來查，不會自動影響回饋：記帳與試算時要不要算成名單內消費，由你自己勾。
   </p>
 
   <div class="section-title">分類</div>
@@ -435,7 +435,7 @@ function confirmWipe() {
 
   <SmallPaySearchSheet :open="spSearchOpen" @close="spSearchOpen = false" />
 
-  <BottomSheet :open="spOpen" title="小額支付名單" @close="spOpen = false" @submit="saveSp">
+  <BottomSheet :open="spOpen" title="小額支付/排除名單" @close="spOpen = false" @submit="saveSp">
     <p v-if="spBig" class="rules-empty">
       目前名單有 {{ spBig.toLocaleString('en-US') }} 筆，太多就不展開了。
       直接讀入新檔會整份取代；在下面打字則會用打的內容取代。

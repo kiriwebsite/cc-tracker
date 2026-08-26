@@ -62,7 +62,7 @@ function loadSmallPay(legacy) {
       const migrated = raw.map(normalizeChannel).filter(Boolean)
       try {
         localStorage.setItem(SP_KEY, JSON.stringify({ updatedAt, channels: migrated }))
-        console.info(`小額支付名單已搬到新位置：${migrated.length} 筆`)
+        console.info(`小額支付/排除名單已搬到新位置：${migrated.length} 筆`)
       } catch (e) {
         // 搬不過去也不要擋著啟動，這輪先用記憶體裡的
         console.error('名單搬遷失敗', e)
@@ -75,7 +75,7 @@ function loadSmallPay(legacy) {
     spKeys = list.map(matchKey)
     return { updatedAt, count: list.length }
   } catch (e) {
-    console.error('小額支付名單讀取失敗', e)
+    console.error('小額支付/排除名單讀取失敗', e)
     spChannels = []
     spKeys = []
     return { updatedAt: null, count: 0 }
@@ -171,7 +171,7 @@ export const newRule = () => ({
   updatedAt: Date.now(),
 })
 
-/* ── 小額支付名單 ─────────────────────────── */
+/* ── 小額支付/排除名單 ────────────────────── */
 
 /** 名單本體（顯示／匯出用）。上萬筆，不要塞進 reactive state */
 export const smallPayChannels = () => spChannels
@@ -199,7 +199,7 @@ export function searchSmallPay(q, limit = 50) {
 }
 
 /**
- * 這筆消費算不算「小額支付」。
+ * 這筆消費算不算「名單內」。
  * 只認使用者自己勾的——不做任何自動比對。名單只用來查，不用來判。
  */
 export const isSmallPay = (e) => e.smallPay === true
@@ -336,7 +336,7 @@ export function applyImport(parsed) {
 /* ── 卡片設定同步（電腦編好 → 手機接收）──── */
 
 /**
- * 要同步過去的東西：卡片、分類、幣別、小額支付名單。
+ * 要同步過去的東西：卡片、分類、幣別、小額支付/排除名單。
  * **不含消費紀錄**——使用者的用法是電腦設定、手機記帳，把 expenses 一起蓋過去
  * 等於每同步一次就抹掉手機上記的帳。完整搬家請用 JSON 備份匯出／匯入。
  */

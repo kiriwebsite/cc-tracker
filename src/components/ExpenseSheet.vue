@@ -26,7 +26,7 @@ const merchant = ref('')
 const err = ref('')
 const amountInput = ref(null)
 
-// 算不算小額支付一律由使用者自己勾——名單只用來查，不用來替他判定
+// 算不算名單內一律由使用者自己勾——名單只用來查，不用來替他判定
 const smallPay = ref(false)
 // 國內／國外也自己勾：規則分國內外時，額度用量要跟著分開算才準
 const overseas = ref(false)
@@ -175,8 +175,8 @@ function del() {
     <button type="button" class="toggle-row" @click="smallPay = !smallPay">
       <span class="toggle-box" :class="{ on: smallPay }">{{ smallPay ? '✓' : '' }}</span>
       <span class="toggle-text">
-        這筆算小額支付
-        <em>排除小額支付的規則不會給這筆回饋</em>
+        這筆在小額支付/排除名單內
+        <em>排除名單內通路的規則不會給這筆回饋</em>
       </span>
     </button>
 

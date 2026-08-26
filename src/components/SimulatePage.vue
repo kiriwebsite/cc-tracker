@@ -37,14 +37,14 @@ watch(merchant, (v) => {
 }, { immediate: false })
 
 /**
- * 自動比對小額支付名單（2026-08-21 使用者定案：取代手動勾選）。
+ * 自動比對小額支付/排除名單（2026-08-21 使用者定案：取代手動勾選）。
  * 比對方向＝名單全名包含輸入的店名；誤判靠透明化擋——命中幾筆、
  * 第一筆是誰都顯示出來，使用者看得到就抓得到。
  */
 const spMatch = computed(() =>
   settled.value && store.smallPay?.count ? searchSmallPay(settled.value, 1) : null,
 )
-// 國外消費不比對小額支付：那份名單是國內通路，比了只會誤判成不給回饋
+// 國外消費不比對名單：那份名單是國內通路，比了只會誤判成不給回饋
 const isSmallPayHit = computed(() => !overseas.value && (spMatch.value?.total || 0) > 0)
 
 // 試算一律用當月：要刷的是現在這筆，跟總覽在看哪個月無關。
@@ -128,11 +128,11 @@ function roomText(r) {
       v-model="merchant"
       type="text"
       class="text-field"
-      placeholder="例：肯德基——自動比對各卡規則與小額支付名單"
+      placeholder="例：肯德基——自動比對各卡規則與小額支付/排除名單"
       autocomplete="off"
     />
 
-    <!-- 小額支付改自動判定：命中名單就標出來（含命中的是哪一筆），
+    <!-- 名單命中改自動判定：命中名單就標出來（含命中的是哪一筆），
          有排除小額的規則會直接被擋掉，不用再手動勾 -->
     <template v-if="overseas">
       <!-- 手續費只提醒、不進計算：費率各卡不同（1.5% 是常見值不是通則），
@@ -140,20 +140,20 @@ function roomText(r) {
       <p class="sim-warn">
         ⚠ 國外消費多半另收 1.5% 國外交易手續費<template v-if="amt">（這筆約 {{ money(amt * 0.015) }}）</template>，下面算的回饋沒有扣掉
       </p>
-      <div class="sim-cond">國外消費不比對小額支付名單（那份是國內通路）</div>
+      <div class="sim-cond">國外消費不比對小額支付/排除名單（那份是國內通路）</div>
     </template>
-    <div v-else-if="checking" class="sim-cond">比對小額支付名單中…</div>
+    <div v-else-if="checking" class="sim-cond">比對小額支付/排除名單中…</div>
     <div v-else-if="settled && store.smallPay?.count" class="sim-cond">
       <span v-if="isSmallPayHit" class="hot">
-        ⚠ 在小額支付名單內：{{ spMatch.hits[0] }}{{ spMatch.total > 1 ? ` 等 ${spMatch.total} 筆` : '' }}
+        ⚠ 在小額支付/排除名單內：{{ spMatch.hits[0] }}{{ spMatch.total > 1 ? ` 等 ${spMatch.total} 筆` : '' }}
       </span>
-      <span v-else>✓ 不在小額支付名單內</span>
+      <span v-else>✓ 不在小額支付/排除名單內</span>
     </div>
 
     <!-- 不用 v-if 藏起來：藏了就沒人知道有這個功能，實際上讓人困惑了兩次。
          還沒匯入名單也照樣顯示，點進去面板會說要先去匯入 -->
     <button type="button" class="sp-search-link" @click="searchOpen = true">
-      {{ store.smallPay?.count ? '查這家店在不在小額支付名單裡 ›' : '匯入小額支付名單後可在這裡查通路 ›' }}
+      {{ store.smallPay?.count ? '查這家店在不在小額支付/排除名單裡 ›' : '匯入小額支付/排除名單後可在這裡查通路 ›' }}
     </button>
 
     <!-- 金額和商家都還沒齊：先別急著列一堆卡 -->
@@ -210,7 +210,7 @@ function roomText(r) {
           <template v-if="results.some((r) => r.expiredRule)">
             有規則本來吃得到，但回饋已經到期了
           </template>
-          <template v-else-if="isSmallPayHit">小額支付被所有規則排除了</template>
+          <template v-else-if="isSmallPayHit">這家在小額支付/排除名單內，被所有規則排除了</template>
           <template v-else-if="overseas">沒有卡片的規則吃國外消費，或是全都已經封頂</template>
           <template v-else>沒有規則吃這筆消費，或是全都已經封頂</template>
         </div>

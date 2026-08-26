@@ -333,7 +333,7 @@ function del() {
       ></textarea>
       <p v-if="r.merchantsText.trim()" class="rule-hint">
         有填商家時，這條規則只給清單裡的店回饋。
-        特約店若常被歸為小額支付，記得把下面的「一般消費排除小額支付」關掉。
+        特約店若常被歸進名單，記得把下面的「一般消費排除名單內通路」關掉。
       </p>
 
       <label class="field-label">適用範圍</label>
@@ -393,8 +393,8 @@ function del() {
       >
         <span class="toggle-box" :class="{ on: r.excludeSmallPay }">{{ r.excludeSmallPay ? '✓' : '' }}</span>
         <span class="toggle-text">
-          一般消費排除小額支付
-          <em>請參考小額支付名單為準</em>
+          一般消費排除名單內通路
+          <em>以小額支付/排除名單為準</em>
         </span>
       </button>
 

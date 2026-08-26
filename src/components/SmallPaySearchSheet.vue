@@ -1,6 +1,6 @@
 <script setup>
-// 查小額支付名單。純查詢——查到什麼不影響任何計算，
-// 要不要當成小額支付由使用者自己在記帳／試算時勾。
+// 查小額支付/排除名單。純查詢——查到什麼不影響任何計算，
+// 要不要當成名單內由使用者自己在記帳／試算時勾。
 import { ref, computed, watch, nextTick } from 'vue'
 import { store, searchSmallPay } from '../composables/useStore'
 import BottomSheet from './BottomSheet.vue'
@@ -25,7 +25,7 @@ watch(
 </script>
 
 <template>
-  <BottomSheet :open="open" title="查小額支付名單" hide-submit @close="$emit('close')">
+  <BottomSheet :open="open" title="查小額支付/排除名單" hide-submit @close="$emit('close')">
     <input
       ref="qInput"
       v-model="q"
