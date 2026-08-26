@@ -1,7 +1,7 @@
 import { reactive, watch } from 'vue'
 import { ymd, monthOf } from '../utils/date'
 import { DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from '../data/categories'
-import { monthUsage, simulate, tightestStatus } from '../utils/rewards'
+import { monthUsage, simulate, cappedStatuses } from '../utils/rewards'
 import { normalizeChannel, matchKey } from '../utils/text'
 
 const KEY = 'cc-tracker-v1'
@@ -242,11 +242,14 @@ export function ruleLabel(rule) {
   return rule.merchants?.length ? '指定商家' : '一般消費'
 }
 
-/** 卡片列表只有一個位置能示警：回傳這張卡本月最吃緊的那條規則 */
-export function cardAlert(cardId, m) {
+/**
+ * 卡片列表要列出這張卡本月每一條有上限的規則還剩多少，最吃緊的排前面。
+ * 到期日拿今天比，不是這個月的哪一天——「還可回饋」問的是現在還拿不拿得到。
+ */
+export function cardCaps(cardId, m) {
   const card = store.cards.find((c) => c.id === cardId)
-  if (!card) return null
-  return tightestStatus(card, usageOf(cardId, m).usedMap)
+  if (!card) return []
+  return cappedStatuses(card, usageOf(cardId, m).usedMap, ymd(new Date()))
 }
 
 /** 刷卡前試算：這筆該刷哪張。只算使用者自己建的卡 */

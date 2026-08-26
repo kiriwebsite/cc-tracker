@@ -467,6 +467,9 @@ input { font-size: 16px; }
 /* 卡面上的回饋額度進度。只有設了上限的規則才有東西可畫，
    所以 .cc 的高度改成下限——沒規則的卡維持原本 112px */
 .cc-cap { margin-top: 10px; }
+/* 多條額度並排時收緊一點：10px 是「跟上面那塊分開」的距離，
+   同一組額度之間再用 10px 會散成好幾塊 */
+.cc-cap + .cc-cap { margin-top: 7px; }
 .cc-cap-row {
   display: flex; justify-content: space-between; align-items: baseline;
   gap: 8px; font-size: 12px; opacity: .92;

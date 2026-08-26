@@ -194,15 +194,20 @@ export function ruleStatus(rule, used = 0) {
   }
 }
 
-/** 這張卡本月最吃緊的那條規則——卡片列表只有一個位置能顯示警示 */
-export function tightestStatus(card, usedMap) {
-  let worst = null
-  for (const rule of card.rules || []) {
-    if (!hasCap(rule)) continue
-    const s = ruleStatus(rule, usedMap[rule.id] || 0)
-    if (!worst || s.ratio > worst.ratio) worst = { rule, ...s }
-  }
-  return worst
+/**
+ * 這張卡所有「有設上限」的規則各自的進度，最吃緊的排前面。
+ * 卡片列表要全部列出來——一張卡常常好幾條規則都有上限，只講最緊的那條，
+ * 其他條還剩多少完全看不到（2026-08-26 使用者定案）。
+ * 沒設上限的規則不列：無限額度沒有「還剩多少」可講。
+ * 過期的也不列（2026-08-26 使用者定案）：「還可回饋 $300」是前瞻性的說法，
+ * 拿不到的額度講剩多少是騙人的。date 傳今天——問的是「現在還能不能拿」，
+ * 不是這個月曾經能不能。date 留空＝不濾，純函式不自己抓系統時間。
+ */
+export function cappedStatuses(card, usedMap = {}, date = '') {
+  return (card.rules || [])
+    .filter((r) => hasCap(r) && !isExpired(r, date))
+    .map((rule) => ({ rule, ...ruleStatus(rule, usedMap[rule.id] || 0) }))
+    .sort((a, b) => b.ratio - a.ratio)
 }
 
 /**
