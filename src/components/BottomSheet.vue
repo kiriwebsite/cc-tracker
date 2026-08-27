@@ -14,11 +14,14 @@ function onKey(e) {
   if (e.key === 'Escape') emit('close')
 }
 
-// 面板開著時鎖住背景捲動，並接管 Esc
+// 面板開著時鎖住背景捲動，並接管 Esc。
+// .sheet-open 給 style.css 的照片模式用：iOS 重排視窗時 fixed 照片層慢一拍、
+// 底部露出畫布，畫布的顏色要跟著「面板開沒開」切換才不會閃出異色塊
 watch(
   () => props.open,
   (open) => {
     document.body.style.overflow = open ? 'hidden' : ''
+    document.body.classList.toggle('sheet-open', open)
     if (open) window.addEventListener('keydown', onKey)
     else window.removeEventListener('keydown', onKey)
   },
@@ -26,6 +29,7 @@ watch(
 
 onUnmounted(() => {
   document.body.style.overflow = ''
+  document.body.classList.remove('sheet-open')
   window.removeEventListener('keydown', onKey)
 })
 </script>

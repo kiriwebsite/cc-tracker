@@ -29,7 +29,6 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro TC", "PingFang TC",
                "Noto Sans TC", "Helvetica Neue", system-ui, sans-serif;
@@ -37,7 +36,13 @@ html, body {
   overscroll-behavior-y: none;
 }
 
-body { min-height: 100dvh; }
+/* 底色只掛 body、html 留空：規範上 html 沒背景時，body 的背景會上繳給畫布，
+   照片模式換 body 底色（見 has-photo 區）連過捲區與重繪空窗一起變色。
+   html 自己有背景的話畫布吃 html 的，body 怎麼換都蓋不到那層。 */
+body {
+  min-height: 100dvh;
+  background: var(--bg);
+}
 
 button, input, select { font-family: inherit; color: inherit; }
 button { cursor: pointer; border: none; background: none; }
@@ -774,8 +779,12 @@ input { font-size: 16px; }
 
 .two-col { display: flex; gap: 12px; }
 .two-col > div { flex: 1; min-width: 0; }
+/* 高度寫死：右邊是一般文字框、左邊是 <input type="date"> 原生元件，
+   後者在 iOS 會自己加內距與行高，兩個並排就差出一截、下緣對不齊。
+   固定高度之後尺寸完全由這裡決定，跟系統怎麼畫無關 */
 .two-col input {
   width: 100%;
+  height: 48px;
   padding: 13px 14px;
   border-radius: 12px;
   border: 1px solid var(--line);
@@ -783,6 +792,13 @@ input { font-size: 16px; }
   outline: none;
 }
 .two-col input:focus { border-color: var(--accent); }
+/* 關掉原生外觀，日期欄才吃得到上面的 padding 與圓角（點下去仍然叫得出
+   系統日曆）。min-width 歸零，中文長日期「2026年8月27日」才不會把欄位撐開 */
+.two-col input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
 
 .card-preview {
   position: relative;
@@ -1071,10 +1087,19 @@ input { font-size: 16px; }
    圖鋪在 fixed 偽元素上（iOS 對 background-attachment: fixed 支援爛），
    疊一層暗化漸層保護可讀性——這是遮罩不是光效 */
 
-/* body 自己的背景會蓋掉 z-index:-1 的偽元素（painting order：
-   canvas → 負 z-index → 區塊背景），照片模式要讓它透明，
-   底色 fallback 交給 html 的背景 */
-body.has-photo { background: transparent; }
+/* body 的底色在照片模式要換掉，但不能讓 body 自己畫——body 自己畫的背景
+   會蓋掉 z-index:-1 的照片偽元素（painting order：畫布 → 負 z-index → 區塊背景）。
+   所以 html 一律不給背景（見「基礎」區）：body 的背景因此上繳給畫布、自身不畫，
+   顏色落在照片之下，照片安全。
+
+   為什麼要換：iOS 重排視窗（面板開關、工具列收合）時 fixed 的照片層會慢一拍，
+   底部短暫露出畫布。露出的顏色要跟當下貼底的東西一致才無感——
+   照片全屏時用近照片的深色（原本露出近白的 --bg，就是「照片下緣白白的」）；
+   面板開著時用面板的淺色（縫貼著面板下緣，同色就隱形——原始版縫一直存在
+   卻沒人看見，正是因為當時全程淺色）。.sheet-open 由 BottomSheet 開關時掛上。 */
+body.has-photo { background: #0a0c12; }
+body.has-photo.photo-light { background: #e7eaee; }
+body.has-photo.sheet-open { background: var(--bg); }
 
 body.has-photo::before {
   content: "";
