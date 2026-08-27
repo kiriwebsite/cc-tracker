@@ -521,6 +521,29 @@ input { font-size: 16px; }
 .cat-row-label { display: flex; align-items: center; gap: 10px; }
 .chev { color: var(--text-dim); font-size: 20px; line-height: 1; }
 
+/* ── 分類長按拖曳排序 ───────────────────────── */
+/* 長按時 iOS 會跳放大鏡與選字、Android 會跳選單，兩個都要關掉，
+   不然手指還沒開始拖就被系統 UI 蓋住 */
+.cat-sort-row {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform .16s ease;
+}
+/* 拖曳中才鎖 touch-action：平常仍要能從分類清單上直接捲頁面 */
+.cat-sorting .cat-sort-row { touch-action: none; }
+/* 被拖的那一列要貼著手指，不能有 transition 拖慢它。
+   底色比 :active 的 --accent-soft 再深一點，按下去和抓起來才分得出來；
+   沒有用陰影做浮起感——.settings-group 是 overflow: hidden，陰影會被切掉 */
+.cat-sort-row.dragging {
+  position: relative;
+  z-index: 2;
+  transition: none;
+  background: rgba(17, 24, 39, .1);
+}
+/* 讓位中的其他列不要跟著亮起來——:active 在拖曳時會誤觸 */
+.cat-sorting .cat-sort-row:not(.dragging):active { background: none; }
+
 .inline-input {
   width: 64px;
   text-align: right;
@@ -1191,6 +1214,9 @@ body.has-photo::before {
 .has-photo .inline-input { color: rgba(255, 255, 255, .7); }
 
 .has-photo .row-btn.danger { color: #ff7b80; }
+
+/* 拖曳中的分類：玻璃上要用提亮，深色的那層在半透明白上幾乎看不見 */
+.has-photo .cat-sort-row.dragging { background: rgba(255, 255, 255, .32); }
 /* 警示色在玻璃上要提亮，var(--danger) 那個深紅會被半透明白吃掉 */
 .has-photo .sim-warn,
 .has-photo .sim-hits,
@@ -1283,6 +1309,9 @@ body.has-photo.photo-light::before { background-color: #e7eaee; }
 
 .photo-light .row-btn.danger { color: var(--danger); }
 
+/* 亮圖的玻璃本來就偏白，再提亮看不出來，改回壓深 */
+.photo-light .cat-sort-row.dragging { background: rgba(23, 24, 28, .12); }
+
 .photo-light .select-caret {
   border-right-color: #414a57;
   border-bottom-color: #414a57;
@@ -1322,7 +1351,7 @@ body.has-photo.photo-light::before { background-color: #e7eaee; }
   * { animation: none !important; transition: none !important; }
 }
 
-/* ── 卡片設定同步 ─────────────────────────── */
+/* ── 設定同步 ───────────────────────────────── */
 .sync-off { padding: 14px; font-size: 13px; color: var(--text-dim); }
 
 .sync-code {

@@ -204,10 +204,16 @@ export function searchSmallPay(q, limit = 50) {
  */
 export const isSmallPay = (e) => e.smallPay === true
 
-/** 整份取代：使用者每季／每月換一份，不做逐筆增刪 */
-export function setSmallPayList(channels) {
+/**
+ * 整份取代：使用者每季／每月換一份，不做逐筆增刪。
+ *
+ * updatedAt 給了就沿用，沒給才蓋現在時間。名單的新舊是名單自己的屬性，
+ * 不是「你什麼時候把它複製過來」——同步收下別台的名單時要帶原本的時間戳，
+ * 否則一份三個月前匯的舊名單一同步就顯示「今天更新」，
+ * 「一季沒換該換一份了」的提醒等於被同步偷偷關掉。
+ */
+export function setSmallPayList(channels, updatedAt = Date.now()) {
   const clean = [...new Set(channels.map(normalizeChannel).filter(Boolean))]
-  const updatedAt = Date.now()
   try {
     localStorage.setItem(SP_KEY, JSON.stringify({ updatedAt, channels: clean }))
   } catch (e) {
@@ -276,6 +282,20 @@ export function removeCategory(id) {
   store.categories = store.categories.filter((c) => c.id !== id)
 }
 
+/**
+ * 分類重新排序（設定頁長按拖曳用）。順序就是陣列順序，沒有另外的 order 欄位——
+ * 記帳頁的 chips 與「預設帶第一個分類」都直接吃這個順序。
+ * from／to 是索引；越界或原地不動就什麼都不做，呼叫端不必先判斷。
+ */
+export function reorderCategories(from, to) {
+  const n = store.categories.length
+  if (from === to) return
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return
+  if (from < 0 || to < 0 || from >= n || to >= n) return
+  const [moved] = store.categories.splice(from, 1)
+  store.categories.splice(to, 0, moved)
+}
+
 export const catOf = (id) => store.categories.find((c) => c.id === id) || FALLBACK_CATEGORY
 
 export const countByCategory = (id) => store.expenses.filter((e) => e.category === id).length
@@ -330,13 +350,19 @@ export function applyImport(parsed) {
   store.categories = readCategories(parsed.categories)
   store.currency = typeof parsed.currency === 'string' && parsed.currency ? parsed.currency : '$'
   store.lastBackupAt = typeof parsed.lastBackupAt === 'number' ? parsed.lastBackupAt : null
-  if (Array.isArray(parsed.smallPay?.channels)) setSmallPayList(parsed.smallPay.channels)
+  // 這裡跟同步不一樣，空名單照收：備份匯入是整包還原，備份當時沒名單就是沒名單。
+  // 但 updatedAt 要沿用備份裡的——還原一份三個月前的備份不該讓名單顯示成「今天更新」
+  if (Array.isArray(parsed.smallPay?.channels)) {
+    const at = typeof parsed.smallPay.updatedAt === 'number' ? parsed.smallPay.updatedAt : undefined
+    setSmallPayList(parsed.smallPay.channels, at)
+  }
 }
 
-/* ── 卡片設定同步（電腦編好 → 手機接收）──── */
+/* ── 設定同步（電腦編好 → 手機接收）───────── */
 
 /**
- * 要同步過去的東西：卡片、分類、幣別、小額支付/排除名單。
+ * 要同步過去的東西：卡片（含回饋規則）、分類、幣別、小額支付/排除名單。
+ * 也就是「除了消費紀錄以外的全部」，所以叫設定同步而不是卡片同步。
  * **不含消費紀錄**——使用者的用法是電腦設定、手機記帳，把 expenses 一起蓋過去
  * 等於每同步一次就抹掉手機上記的帳。完整搬家請用 JSON 備份匯出／匯入。
  */
@@ -396,7 +422,7 @@ function relinkExpenses(oldCards) {
 }
 
 /**
- * 收下另一台裝置的卡片設定，本機的消費紀錄原封不動。
+ * 收下另一台裝置的設定，本機的消費紀錄原封不動。
  * 回報接回幾筆、還剩幾筆孤兒——孤兒不擅自刪掉（那是使用者的紀錄），但要講出來。
  */
 export function applySettings(parsed) {
@@ -408,11 +434,22 @@ export function applySettings(parsed) {
     store.categories = readCategories(parsed.categories)
   }
   if (typeof parsed.currency === 'string' && parsed.currency) store.currency = parsed.currency
-  if (Array.isArray(parsed.smallPay?.channels)) setSmallPayList(parsed.smallPay.channels)
 
+  // 空名單不覆寫。送方沒匯過名單時 channels 是 []，照收會把這台整份清掉——
+  // 而清空名單是本機動作，不該由同步代勞。判斷跟上面的分類一致。
+  const incoming = parsed.smallPay?.channels
+  const listReplaced = Array.isArray(incoming) && incoming.length > 0
+  if (listReplaced) {
+    const at = typeof parsed.smallPay.updatedAt === 'number' ? parsed.smallPay.updatedAt : undefined
+    setSmallPayList(incoming, at)
+  }
+
+  // 回報實際做了什麼，不是「應該做了什麼」——UI 要照這個講給使用者聽
   return {
     cards: store.cards.length,
+    categories: store.categories.length,
     channels: store.smallPay.count,
+    listReplaced,
     ...relinkExpenses(oldCards),
   }
 }

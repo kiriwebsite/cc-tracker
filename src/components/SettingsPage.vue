@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import {
   store, serialize, applyImport, markBackedUp, wipeAll, backupFileName, setSmallPayList,
-  smallPayChannels, exportSettings, applySettings,
+  smallPayChannels, exportSettings, applySettings, reorderCategories,
 } from '../composables/useStore'
 import { SYNC_API } from '../config'
 import { cleanPdfLines, hasOddGlyph, pageLinesFirstColumn, guessColumnBoundary } from '../utils/text'
@@ -10,7 +10,7 @@ import { toast } from '../composables/useToast'
 import BottomSheet from './BottomSheet.vue'
 import SmallPaySearchSheet from './SmallPaySearchSheet.vue'
 
-defineEmits(['edit-category', 'add-category'])
+const emit = defineEmits(['edit-category', 'add-category'])
 
 const fileInput = ref(null)
 
@@ -226,7 +226,7 @@ function onCurrencyChange(ev) {
   ev.target.value = store.currency
 }
 
-/* ── 卡片設定同步：電腦上傳拿短碼，手機輸入短碼收下 ── */
+/* ── 設定同步：電腦上傳拿短碼，手機輸入短碼收下 ── */
 
 const syncOn = !!SYNC_API
 const sending = ref(false)
@@ -236,7 +236,7 @@ const codeInput = ref('')
 const syncErr = ref('')
 const syncNote = ref('')
 
-/** 上傳這台的卡片設定，換一組短碼給另一台輸入 */
+/** 上傳這台的設定，換一組短碼給另一台輸入 */
 async function sendSettings() {
   syncErr.value = ''
   syncNote.value = ''
@@ -262,8 +262,9 @@ async function sendSettings() {
 }
 
 /**
- * 憑短碼收下另一台的卡片設定。
- * 覆蓋前先問過——卡片會被整組換掉，但這台記的帳會留著。
+ * 憑短碼收下另一台的設定。
+ * 覆蓋前先問過，而且要逐項講清楚哪些會被換掉、哪些會保留——
+ * 卡片、分類、名單都會被整組換掉，但這台記的帳會留著。
  */
 async function receiveSettings() {
   syncErr.value = ''
@@ -279,14 +280,35 @@ async function receiveSettings() {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || `接收失敗（${res.status}）`)
 
+    // 逐項列出「收到幾筆 → 取代這台的幾筆」。只講卡片的話，分類與名單是無聲被換掉的，
+    // 使用者要在按下確定之前就看得到自己會失去什麼。
+    // 對方沒有的項目照 applySettings 的規則會保留，這裡也要照實說，不能寫成「取代成 0」
     const n = Array.isArray(data.cards) ? data.cards.length : 0
-    if (!confirm(`收到 ${n} 張卡的設定。這台現有的卡片設定會被換掉（消費紀錄會保留），確定？`)) {
-      return
-    }
+    const nc = Array.isArray(data.categories) ? data.categories.length : 0
+    const ns = Array.isArray(data.smallPay?.channels) ? data.smallPay.channels.length : 0
+    const num = (x) => x.toLocaleString('en-US')
+    const mine = store.smallPay?.count || 0
+    const ok = confirm(
+      [
+        `卡片　${n} 張 → 取代這台的 ${store.cards.length} 張`,
+        nc
+          ? `分類　${nc} 個（含順序）→ 取代這台的 ${store.categories.length} 個`
+          : `分類　對方沒有，這台的 ${store.categories.length} 個會保留`,
+        ns
+          ? `名單　${num(ns)} 筆 → 取代這台的 ${num(mine)} 筆`
+          : `名單　對方沒有，這台的 ${num(mine)} 筆會保留`,
+        '',
+        '消費紀錄不會被動到。確定收下？',
+      ].join('\n'),
+    )
+    if (!ok) return
 
     const r = applySettings(data)
     codeInput.value = ''
-    toast(`已收下 ${r.cards} 張卡`)
+    toast(
+      `已收下 ${r.cards} 張卡、${r.categories} 個分類` +
+        (r.listReplaced ? `、名單 ${num(r.channels)} 筆` : ''),
+    )
     syncNote.value = r.relinked ? `另有 ${r.relinked} 筆這台記的帳已接回對應的卡` : ''
     if (r.orphans) {
       syncErr.value = `有 ${r.orphans} 筆消費紀錄對不上任何卡片——卡名與末四碼都跟另一台不同。紀錄還留著，改一下卡片名稱再同步一次就會接回去`
@@ -304,19 +326,162 @@ function confirmWipe() {
   wipeAll()
   toast('已清除')
 }
+
+/* ── 分類長按拖曳排序 ──────────────────────── */
+
+// 400ms 是長按與「點一下要編輯」之間的分水嶺。再短會讓正常點擊誤觸拖曳，
+// 再長使用者會以為沒反應而放開。
+const LONG_PRESS_MS = 400
+// 長按還沒成立就先滑動這麼多，代表使用者是要捲頁面不是要拖分類
+const SCROLL_GUARD_PX = 8
+
+const dragId = ref(null) // 拖曳中的分類 id，null＝沒在拖
+const dragFrom = ref(-1) // 拖曳起點的索引
+const dragTo = ref(-1) // 目前會落到的索引
+const dragY = ref(0) // 被拖的那一列相對原位的位移（px）
+
+// 這些是手勢的暫存量，畫面不讀，不需要是 ref
+let pressTimer = null
+let startY = 0
+let rowH = 0
+let dragEl = null
+let dragPointerId = null
+// 長按成立後放開，click 還是會照發——用這個旗標把那次點擊吃掉，
+// 否則每次拖完都會順便打開編輯分類的面板
+let swallowClick = false
+
+const dragging = () => dragId.value !== null
+
+function clearPressTimer() {
+  if (pressTimer) clearTimeout(pressTimer)
+  pressTimer = null
+}
+
+/**
+ * 拖曳期間**不動 store.categories**，只記 from／to，靠 transform 讓其他列讓位。
+ * 邊拖邊改陣列的話，v-for 會在手指底下重排，被拖的那一列位置會抖。
+ * 每一列要位移多少：夾在 from 與 to 之間的往回讓一格，其餘不動。
+ */
+function rowShift(i) {
+  if (!dragging()) return 0
+  const from = dragFrom.value
+  const to = dragTo.value
+  if (i === from) return dragY.value
+  if (to > from && i > from && i <= to) return -rowH
+  if (to < from && i >= to && i < from) return rowH
+  return 0
+}
+
+function onRowPointerDown(e, c, i) {
+  // 只認滑鼠左鍵；觸控的 button 是 0，不會被擋掉
+  if (e.button) return
+  clearPressTimer()
+  // 上一次拖曳如果沒等到 click（放手的位置和按下的不是同一列時，瀏覽器不會發 click），
+  // 旗標會留著把這次的正常點擊吃掉。事件順序是 down → up → click → 下一個 down，
+  // 所以在這裡清掉不會影響本次手勢自己的 click
+  swallowClick = false
+  startY = e.clientY
+  dragEl = e.currentTarget
+  dragPointerId = e.pointerId
+  pressTimer = setTimeout(() => {
+    pressTimer = null
+    // 高度用量的不用寫死：字級或 padding 之後改了，這裡自己會跟上
+    rowH = dragEl.offsetHeight
+    dragId.value = c.id
+    dragFrom.value = i
+    dragTo.value = i
+    dragY.value = 0
+    swallowClick = true
+    // 抓住指標：手指滑出這一列（甚至滑出清單）後續事件仍然收得到。
+    // 指標已經抬起（長按剛好卡在放開的瞬間）時會丟 InvalidStateError，
+    // 那種情況拖不拖得成無所謂，但不能讓它把後面的觸覺回饋一起帶走
+    try {
+      dragEl.setPointerCapture?.(dragPointerId)
+    } catch {
+      /* 指標已失效，沒有 capture 也還是拖得動 */
+    }
+    // Android 有觸覺回饋才知道「抓起來了」；iOS Safari 沒有這個 API，忽略即可
+    navigator.vibrate?.(12)
+  }, LONG_PRESS_MS)
+}
+
+function onRowPointerMove(e) {
+  if (!dragging()) {
+    if (pressTimer && Math.abs(e.clientY - startY) > SCROLL_GUARD_PX) clearPressTimer()
+    return
+  }
+  const delta = e.clientY - startY
+  const last = store.categories.length - 1
+  // 移動超過半列才換位：整列才換的話手感很鈍，四分之一列則會抖
+  dragTo.value = Math.min(last, Math.max(0, dragFrom.value + Math.round(delta / rowH)))
+  // 拖曳中不動陣列，被拖的列一直待在原本那一格，所以位移就是手指走了多遠。
+  // 上下夾在清單範圍內，免得手指滑過頭時那一列跑出清單被 overflow 切掉
+  const lo = -dragFrom.value * rowH
+  const hi = (last - dragFrom.value) * rowH
+  dragY.value = Math.min(hi, Math.max(lo, delta))
+}
+
+function resetDrag() {
+  clearPressTimer()
+  if (dragging()) {
+    // pointercancel 進來時 capture 通常已經被瀏覽器收回了，再放一次會丟
+    try {
+      dragEl?.releasePointerCapture?.(dragPointerId)
+    } catch {
+      /* 已經沒抓著了，正是我們要的狀態 */
+    }
+  }
+  dragId.value = null
+  dragFrom.value = -1
+  dragTo.value = -1
+  dragY.value = 0
+  dragEl = null
+  dragPointerId = null
+}
+
+/** 手指放開：把拖到的位置寫進去 */
+function dropDrag() {
+  const from = dragFrom.value
+  const to = dragTo.value
+  const committing = dragging()
+  resetDrag()
+  if (committing) reorderCategories(from, to)
+}
+
+/**
+ * pointercancel＝手勢被系統收走（來電、切 App、瀏覽器自己接管捲動）。
+ * 使用者沒有「放手」過，不該替他決定順序，直接還原。
+ */
+function cancelDrag() {
+  resetDrag()
+}
+
+// 拖曳中要擋掉頁面捲動。touch-action 在手勢開始後才改是不算數的，
+// 只能靠 preventDefault——所以這個 listener 不能是 passive 的（Vue 綁在元素上預設就不是）
+function onRowTouchMove(e) {
+  if (dragging()) e.preventDefault()
+}
+
+function onRowClick(id) {
+  if (swallowClick) {
+    swallowClick = false
+    return
+  }
+  emit('edit-category', id)
+}
 </script>
 
 <template>
   <header class="top"><h1>設定</h1></header>
 
-  <div class="section-title">卡片設定同步</div>
+  <div class="section-title">設定同步</div>
   <div v-if="!syncOn" class="settings-group">
     <div class="sync-off">尚未設定同步服務（見 worker/README.md）</div>
   </div>
   <template v-else>
     <div class="settings-group sync-send">
       <button class="row-btn" :disabled="sending" @click="sendSettings">
-        <span>{{ sending ? '上傳中…' : '把卡片設定傳到另一台' }}</span><span class="chev">›</span>
+        <span>{{ sending ? '上傳中…' : '把這台的設定傳到另一台' }}</span><span class="chev">›</span>
       </button>
     </div>
 
@@ -327,7 +492,7 @@ function confirmWipe() {
     </div>
 
     <div class="settings-group sync-recv">
-      <label class="field-label" for="sync-code">收下另一台的卡片設定</label>
+      <label class="field-label" for="sync-code">收下另一台的設定</label>
       <div class="sync-row">
         <input
           id="sync-code"
@@ -348,7 +513,7 @@ function confirmWipe() {
     <p v-if="syncNote" class="hint">{{ syncNote }}</p>
     <p v-if="syncErr" class="hint warn">{{ syncErr }}</p>
     <p class="hint">
-      傳的是卡片、規則、分類與小額支付/排除名單，<b>不含消費紀錄</b>——
+      傳的是卡片與回饋規則、分類（含順序與 emoji）、幣別符號、小額支付/排除名單，<b>不含消費紀錄</b>——
       收下設定不會動到這台記的帳。要整包搬家請用下面的 JSON 備份。
     </p>
   </template>
@@ -393,13 +558,21 @@ function confirmWipe() {
     名單只用來查，不會自動影響回饋：記帳與試算時要不要算成名單內消費，由你自己勾。
   </p>
 
-  <div class="section-title">分類</div>
-  <div class="settings-group">
+  <div class="section-title">分類（長按拖曳調整順序）</div>
+  <div class="settings-group" :class="{ 'cat-sorting': dragId !== null }">
     <button
-      v-for="c in store.categories"
+      v-for="(c, i) in store.categories"
       :key="c.id"
-      class="row-btn"
-      @click="$emit('edit-category', c.id)"
+      class="row-btn cat-sort-row"
+      :class="{ dragging: c.id === dragId }"
+      :style="{ transform: `translateY(${rowShift(i)}px)` }"
+      @pointerdown="onRowPointerDown($event, c, i)"
+      @pointermove="onRowPointerMove"
+      @pointerup="dropDrag"
+      @pointercancel="cancelDrag"
+      @touchmove="onRowTouchMove"
+      @contextmenu.prevent
+      @click="onRowClick(c.id)"
     >
       <span class="cat-row-label">
         <span class="cat-emoji">{{ c.emoji }}</span>{{ c.name }}

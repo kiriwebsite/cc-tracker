@@ -43,7 +43,7 @@ jobs:
       - run: npm run build
         env:
           VITE_NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
-          # 卡片設定同步的中轉站網址（worker/ 那支 Worker 部署後的網址）。
+          # 設定同步的中轉站網址（worker/ 那支 Worker 部署後的網址）。
           # 不是機密，用 repository variable 就好；沒設的話同步功能顯示成「尚未設定」
           VITE_SYNC_API: ${{ vars.SYNC_API }}
 
