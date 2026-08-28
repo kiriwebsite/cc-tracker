@@ -452,17 +452,16 @@ input { font-size: 16px; }
 .ms-item:last-child { border-bottom: none; }
 .ms-item:active { background: var(--accent-soft); }
 .ms-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-/* 「名單內」是警告不是標籤：點下去就代表這筆吃不到回饋 */
+/* 只有「記過」一種標記，低調就好——它是幫你認出自己記過的店，不是警告 */
 .ms-tag {
   flex: none;
   font-size: 11px;
   font-weight: 600;
-  color: var(--danger);
-  background: rgba(217, 45, 32, .1);
+  color: var(--text-dim);
+  background: var(--accent-soft);
   padding: 3px 7px;
   border-radius: 999px;
 }
-.ms-tag.past { color: var(--text-dim); background: var(--accent-soft); }
 
 .card-manage { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
 

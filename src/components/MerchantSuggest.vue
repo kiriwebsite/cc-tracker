@@ -49,9 +49,12 @@ const items = computed(() =>
       @click="$emit('pick', it.name)"
     >
       <span class="ms-name">{{ it.name }}</span>
-      <!-- 點之前就要知道選了它等於沒回饋 -->
-      <span v-if="it.inList" class="ms-tag">名單內</span>
-      <span v-else-if="it.past" class="ms-tag past">記過</span>
+      <!-- 只標「記過」，不標「在名單內」。
+           候選本來就有一半是從名單撈出來的，再標一次是自己講自己；
+           而且記帳是在記錄事實不是在做選擇——你人就在那裡刷的，
+           先警告也不會改變你要點哪一個。名單的後果留到選完之後，
+           由勾選框底下那行講一次就夠。 -->
+      <span v-if="it.past" class="ms-tag past">記過</span>
     </button>
   </div>
 </template>

@@ -251,7 +251,9 @@ export const isSmallPay = (e) => e.smallPay === true
  * 同一組內開頭吻合的排前面：打「誠品」時「誠品置物櫃」要比
  * 「黑松販賣機(誠品外)」先出現，這是 typeahead 的基本預期。
  *
- * inList 是給 UI 標記用的——使用者點之前就該知道選了它等於沒回饋。
+ * 不回傳「在不在名單內」：候選本來就有一半是從名單撈出來的，標了是自己
+ * 講自己；而且記帳是在記錄事實不是做選擇，先警告改變不了使用者要點哪個。
+ * 名單的後果由勾選框底下那行在選完之後講。
  */
 export function suggestMerchants(q, limit = 6) {
   const k = matchKey(q)
@@ -269,14 +271,14 @@ export function suggestMerchants(q, limit = 6) {
     const key = matchKey(name)
     if (!key || seen.has(key) || !key.includes(k)) continue
     seen.add(key)
-    past.push({ name, past: true, inList: matchSmallPay(name, 1).sureTotal > 0, head: key.startsWith(k) })
+    past.push({ name, past: true, head: key.startsWith(k) })
   }
 
   for (let i = 0; i < spKeys.length; i++) {
     const key = spKeys[i]
     if (!key || seen.has(key) || !key.includes(k)) continue
     seen.add(key)
-    listed.push({ name: spChannels[i], past: false, inList: true, head: key.startsWith(k) })
+    listed.push({ name: spChannels[i], past: false, head: key.startsWith(k) })
     // 上萬筆不必全掃完，湊夠可以排序的量就夠了
     if (listed.length >= limit * 4) break
   }
