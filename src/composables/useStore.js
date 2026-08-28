@@ -178,13 +178,7 @@ export const smallPayChannels = () => spChannels
 
 /**
  * 名單查詢：找出名單裡含這段文字的店。
- *
- * 三個地方在用：設定頁的查詢面板（純查）、試算頁與記帳頁的自動比對
- * （2026-08-21 使用者定案，會影響回饋計算）。
- *
- * 名單是分店全名，模糊比對誤判很兇——打「全家」會撞到
- * 「黑松販賣機(康寧大學全家外)」。所以自動比對的兩處都必須把命中的是誰、
- * 共幾筆顯示出來，並且讓使用者能推翻：誤判靠透明化擋，不靠比對變聰明。
+ * 設定頁的查詢面板用——翻名單的工具，寬鬆一點才好找，不參與任何判定。
  */
 export function searchSmallPay(q, limit = 50) {
   const k = matchKey(q)
@@ -198,6 +192,44 @@ export function searchSmallPay(q, limit = 50) {
     }
   }
   return { hits, total }
+}
+
+/**
+ * 自動判定用的比對：把結果分成「確定」與「疑似」，記帳頁與試算頁共用。
+ *
+ * 單純的子字串比對方向不對就會誤判——打「誠品」會撞到「誠品置物櫃」，
+ * 那是兩家不同的店。差別在**誰包含誰**：
+ *
+ * - `sure`：使用者打的字**包含**名單項目（含完全相同）。
+ *   打「街口支付台北店」對上名單的「街口支付」——他人就在那個通路，
+ *   只是多打了分店細節。這個方向不會錯，可以自動勾。
+ * - `maybe`：名單項目**包含**使用者打的字，而且比他打的更長。
+ *   名單那筆比他講的更具體，而多出來的字可能整個換掉是什麼東西
+ *   （誠品 → 誠品置物櫃、全家 → 黑松販賣機(康寧大學全家外)）。
+ *   只能提示，不能替他決定。
+ *
+ * 用包含方向而不是長度比例，是為了不引進「多短算短」這種要調的閾值——
+ * 誰包含誰是資料本身就答得出來的問題。
+ */
+export function matchSmallPay(q, limit = 3) {
+  const k = matchKey(q)
+  const empty = { sure: [], maybe: [], sureTotal: 0, maybeTotal: 0 }
+  if (!k || !spKeys.length) return empty
+
+  const out = { sure: [], maybe: [], sureTotal: 0, maybeTotal: 0 }
+  for (let i = 0; i < spKeys.length; i++) {
+    const key = spKeys[i]
+    if (!key) continue
+    if (k.includes(key)) {
+      // 完全相同也走這條：k.includes(k) 為真
+      out.sureTotal++
+      if (out.sure.length < limit) out.sure.push(spChannels[i])
+    } else if (key.includes(k)) {
+      out.maybeTotal++
+      if (out.maybe.length < limit) out.maybe.push(spChannels[i])
+    }
+  }
+  return out
 }
 
 /**

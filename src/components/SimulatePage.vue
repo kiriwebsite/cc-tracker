@@ -2,7 +2,7 @@
 // 刷卡前試算：輸入這筆要刷多少、在哪家店，回答「該刷哪張卡、回饋到沒有」。
 // 這是這個 app 的主功能——不是記帳，是刷之前的決策。
 import { ref, computed, watch } from 'vue'
-import { store, money, simulateCards, ruleLabel, searchSmallPay, cardThumb } from '../composables/useStore'
+import { store, money, simulateCards, ruleLabel, matchSmallPay, cardThumb } from '../composables/useStore'
 import { currentMonth, parseDate } from '../utils/date'
 import { EXPIRY_SOON_DAYS } from '../utils/rewards'
 import EmptyState from './EmptyState.vue'
@@ -38,14 +38,20 @@ watch(merchant, (v) => {
 
 /**
  * 自動比對小額支付/排除名單（2026-08-21 使用者定案：取代手動勾選）。
- * 比對方向＝名單全名包含輸入的店名；誤判靠透明化擋——命中幾筆、
- * 第一筆是誰都顯示出來，使用者看得到就抓得到。
+ * 只有「確定命中」才算數，疑似的另外提示不進計算——判定規則與理由
+ * 見 useStore 的 matchSmallPay。記帳頁走同一套，同一家店走哪個入口
+ * 都該得到同樣的結論。
  */
 const spMatch = computed(() =>
-  settled.value && store.smallPay?.count ? searchSmallPay(settled.value, 1) : null,
+  !overseas.value && settled.value && store.smallPay?.count
+    ? matchSmallPay(settled.value)
+    : null,
 )
 // 國外消費不比對名單：那份名單是國內通路，比了只會誤判成不給回饋
-const isSmallPayHit = computed(() => !overseas.value && (spMatch.value?.total || 0) > 0)
+const isSmallPayHit = computed(() => (spMatch.value?.sureTotal || 0) > 0)
+const isSmallPayMaybe = computed(
+  () => !isSmallPayHit.value && (spMatch.value?.maybeTotal || 0) > 0,
+)
 
 // 試算一律用當月：要刷的是現在這筆，跟總覽在看哪個月無關。
 // 金額、商家都齊了才算——商家是比對規則與小額名單的依據，缺了會全錯。
@@ -145,7 +151,11 @@ function roomText(r) {
     <div v-else-if="checking" class="sim-cond">比對小額支付/排除名單中…</div>
     <div v-else-if="settled && store.smallPay?.count" class="sim-cond">
       <span v-if="isSmallPayHit" class="hot">
-        ⚠ 在小額支付/排除名單內：{{ spMatch.hits[0] }}{{ spMatch.total > 1 ? ` 等 ${spMatch.total} 筆` : '' }}
+        ⚠ 在小額支付/排除名單內：{{ spMatch.sure[0] }}{{ spMatch.sureTotal > 1 ? ` 等 ${spMatch.sureTotal} 筆` : '' }}
+      </span>
+      <span v-else-if="isSmallPayMaybe">
+        名單裡有 {{ spMatch.maybeTotal }} 筆含「{{ settled }}」（例如「{{ spMatch.maybe[0] }}」）。
+        下面的試算沒有把它當名單內算
       </span>
       <span v-else>✓ 不在小額支付/排除名單內</span>
     </div>

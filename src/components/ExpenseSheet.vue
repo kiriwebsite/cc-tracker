@@ -2,7 +2,7 @@
 import { ref, watch, computed, nextTick } from 'vue'
 import {
   store, money, addExpense, updateExpense, removeExpense, lastUsedCardId, cardThumb,
-  searchSmallPay,
+  matchSmallPay,
 } from '../composables/useStore'
 import { ymd, monthOf } from '../utils/date'
 import { toast } from '../composables/useToast'
@@ -54,12 +54,14 @@ watch(merchant, (v) => {
 // 國外消費不比對：那份名單是國內通路，比了只會誤判成不給回饋
 const spMatch = computed(() =>
   !overseas.value && settledMerchant.value && store.smallPay?.count
-    ? searchSmallPay(settledMerchant.value, 1)
+    ? matchSmallPay(settledMerchant.value)
     : null,
 )
-const spHit = computed(() => (spMatch.value?.total || 0) > 0)
-// 有比對、但沒命中——要講出來，這正是「記帳時也能查名單」要的那半邊答案
-const spMiss = computed(() => !!spMatch.value && !spHit.value)
+// 只有「確定」才自動勾。疑似的交給使用者，理由見 matchSmallPay 的說明
+const spHit = computed(() => (spMatch.value?.sureTotal || 0) > 0)
+const spMaybe = computed(() => !spHit.value && (spMatch.value?.maybeTotal || 0) > 0)
+// 有比對、兩種都沒中——要講出來，這正是「記帳時也能查名單」要的那半邊答案
+const spMiss = computed(() => !!spMatch.value && !spHit.value && !spMaybe.value)
 // 跳過比對的理由要說，不然使用者會以為功能壞了
 const spSkippedOverseas = computed(
   () => overseas.value && !!merchant.value.trim() && !!store.smallPay?.count,
@@ -236,7 +238,11 @@ function del() {
       <span class="toggle-text">
         這筆在小額支付/排除名單內
         <em v-if="spHit" class="warn">
-          ⚠ 名單裡比對到「{{ spMatch.hits[0] }}」{{ spMatch.total > 1 ? ` 等 ${spMatch.total} 筆` : '' }}
+          ⚠ 名單裡比對到「{{ spMatch.sure[0] }}」{{ spMatch.sureTotal > 1 ? ` 等 ${spMatch.sureTotal} 筆` : '' }}
+        </em>
+        <em v-else-if="spMaybe">
+          名單裡有 {{ spMatch.maybeTotal }} 筆含「{{ settledMerchant }}」，例如「{{ spMatch.maybe[0] }}」。
+          刷的是這類的話請自己勾
         </em>
         <em v-else-if="spMiss">✓「{{ settledMerchant }}」不在名單內</em>
         <em v-else-if="spSkippedOverseas">國外消費不比對名單（那份是國內通路）</em>
