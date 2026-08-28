@@ -3,6 +3,7 @@
 // 這是這個 app 的主功能——不是記帳，是刷之前的決策。
 import { ref, computed, watch } from 'vue'
 import { store, money, simulateCards, ruleLabel, matchSmallPay, cardThumb } from '../composables/useStore'
+import MerchantSuggest from './MerchantSuggest.vue'
 import { currentMonth, parseDate } from '../utils/date'
 import { EXPIRY_SOON_DAYS } from '../utils/rewards'
 import EmptyState from './EmptyState.vue'
@@ -52,6 +53,26 @@ const isSmallPayHit = computed(() => (spMatch.value?.sureTotal || 0) > 0)
 const isSmallPayMaybe = computed(
   () => !isSmallPayHit.value && (spMatch.value?.maybeTotal || 0) > 0,
 )
+
+// 點過候選就收起清單，直到使用者又動了輸入框。不能只在 watch(merchant)
+// 裡打開——點候選本身會改 merchant，而 watcher 下一個 tick 才跑，
+// 會把剛設好的 suppressed 蓋掉；記下「這個值是點出來的」讓 watcher 跳過
+const suggestOff = ref(false)
+let pickedValue = null
+watch(merchant, (v) => {
+  if (v === pickedValue) return
+  pickedValue = null
+  suggestOff.value = false
+})
+
+function pickMerchant(name) {
+  pickedValue = name
+  merchant.value = name
+  suggestOff.value = true
+  // 點候選＝使用者親自指認這家店是誰，不必再等 debounce 才給結論
+  settled.value = name
+  checking.value = false
+}
 
 // 試算一律用當月：要刷的是現在這筆，跟總覽在看哪個月無關。
 // 金額、商家都齊了才算——商家是比對規則與小額名單的依據，缺了會全錯。
@@ -137,6 +158,7 @@ function roomText(r) {
       placeholder="例：肯德基——自動比對各卡規則與小額支付/排除名單"
       autocomplete="off"
     />
+    <MerchantSuggest :query="merchant" :suppressed="suggestOff" @pick="pickMerchant" />
 
     <!-- 名單命中改自動判定：命中名單就標出來（含命中的是哪一筆），
          有排除小額的規則會直接被擋掉，不用再手動勾 -->

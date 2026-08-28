@@ -241,6 +241,51 @@ export function matchSmallPay(q, limit = 3) {
 export const isSmallPay = (e) => e.smallPay === true
 
 /**
+ * 商家輸入的候選清單（記帳頁與試算頁的 typeahead）。
+ *
+ * 兩個來源，順序有意義：
+ * 1. 記過的商家，新的在前——記帳最常發生的是又去同一家店，這個最省打字
+ * 2. 名單裡的通路——讓使用者直接點掉歧義。與其讓程式猜「誠品」是不是
+ *    「誠品置物櫃」（見 matchSmallPay），不如給他點，點完就是確定命中
+ *
+ * 同一組內開頭吻合的排前面：打「誠品」時「誠品置物櫃」要比
+ * 「黑松販賣機(誠品外)」先出現，這是 typeahead 的基本預期。
+ *
+ * inList 是給 UI 標記用的——使用者點之前就該知道選了它等於沒回饋。
+ */
+export function suggestMerchants(q, limit = 6) {
+  const k = matchKey(q)
+  if (!k) return []
+
+  const seen = new Set()
+  const past = []
+  const listed = []
+
+  // 記過的商家：同名只取最近那筆，所以先依時間新到舊掃
+  const recent = [...store.expenses].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+  for (const e of recent) {
+    const name = (e.merchant || '').trim()
+    if (!name) continue
+    const key = matchKey(name)
+    if (!key || seen.has(key) || !key.includes(k)) continue
+    seen.add(key)
+    past.push({ name, past: true, inList: matchSmallPay(name, 1).sureTotal > 0, head: key.startsWith(k) })
+  }
+
+  for (let i = 0; i < spKeys.length; i++) {
+    const key = spKeys[i]
+    if (!key || seen.has(key) || !key.includes(k)) continue
+    seen.add(key)
+    listed.push({ name: spChannels[i], past: false, inList: true, head: key.startsWith(k) })
+    // 上萬筆不必全掃完，湊夠可以排序的量就夠了
+    if (listed.length >= limit * 4) break
+  }
+
+  const byHead = (a, b) => Number(b.head) - Number(a.head)
+  return [...past.sort(byHead), ...listed.sort(byHead)].slice(0, limit)
+}
+
+/**
  * 整份取代：使用者每季／每月換一份，不做逐筆增刪。
  *
  * updatedAt 給了就沿用，沒給才蓋現在時間。名單的新舊是名單自己的屬性，

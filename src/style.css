@@ -428,6 +428,42 @@ input { font-size: 16px; }
    的不透明淺底上，提亮反而糊掉 */
 .toggle-text em.warn { color: var(--danger); }
 
+/* ── 商家候選清單（typeahead）──────────────────── */
+/* 佔版面推開後面的內容，不做浮層：記帳頁的輸入框在 BottomSheet 裡，
+   浮層會被 sheet 的 overflow-y 切掉 */
+.ms-list {
+  margin-top: 6px;
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.ms-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 15px;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+.ms-item:last-child { border-bottom: none; }
+.ms-item:active { background: var(--accent-soft); }
+.ms-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* 「名單內」是警告不是標籤：點下去就代表這筆吃不到回饋 */
+.ms-tag {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
+  background: rgba(217, 45, 32, .1);
+  padding: 3px 7px;
+  border-radius: 999px;
+}
+.ms-tag.past { color: var(--text-dim); background: var(--accent-soft); }
+
 .card-manage { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
 
 .cc {

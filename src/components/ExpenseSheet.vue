@@ -7,6 +7,7 @@ import {
 import { ymd, monthOf } from '../utils/date'
 import { toast } from '../composables/useToast'
 import BottomSheet from './BottomSheet.vue'
+import MerchantSuggest from './MerchantSuggest.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -83,6 +84,28 @@ watch(spHit, (hit) => {
 function toggleSmallPay() {
   spTouched = true
   smallPay.value = !smallPay.value
+}
+
+// 點過候選之後收起清單，直到使用者又動了輸入框——不然點完清單還杵著擋畫面。
+// 不能單純在 watch(merchant) 裡打開：點候選本身就會改 merchant，而 Vue 的
+// watcher 是下一個 tick 才跑，會把剛設好的 suppressed 又蓋掉。所以記下
+// 「這個值是點出來的」，watcher 看到同一個值就跳過。
+const suggestOff = ref(false)
+let pickedValue = null
+watch(merchant, (v) => {
+  if (v === pickedValue) return
+  pickedValue = null
+  suggestOff.value = false
+})
+
+function pickMerchant(name) {
+  pickedValue = name
+  merchant.value = name
+  suggestOff.value = true
+  // 點候選＝使用者親自指認這家店是誰，歧義已經由他解掉了，
+  // 所以把自動判定的主導權交回去（就算他先前手動改過勾選框）
+  spTouched = false
+  settledMerchant.value = name
 }
 
 watch(
@@ -220,6 +243,7 @@ function del() {
       maxlength="40"
       autocomplete="off"
     />
+    <MerchantSuggest :query="merchant" :suppressed="suggestOff" @pick="pickMerchant" />
 
     <button type="button" class="toggle-row" @click="overseas = !overseas">
       <span class="toggle-box" :class="{ on: overseas }">{{ overseas ? '✓' : '' }}</span>
