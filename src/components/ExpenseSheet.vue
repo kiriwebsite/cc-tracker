@@ -2,6 +2,7 @@
 import { ref, watch, computed, nextTick } from 'vue'
 import {
   store, money, addExpense, updateExpense, removeExpense, lastUsedCardId, cardThumb,
+  searchSmallPay,
 } from '../composables/useStore'
 import { ymd, monthOf } from '../utils/date'
 import { toast } from '../composables/useToast'
@@ -26,7 +27,9 @@ const merchant = ref('')
 const err = ref('')
 const amountInput = ref(null)
 
-// 算不算名單內一律由使用者自己勾——名單只用來查，不用來替他判定
+// 打了商家名稱就自動比對名單，命中會自動勾起來（規則見下面的 spTouched）。
+// 以前這裡只有手動勾，但試算頁 2026-08-21 就改成自動判定了——同一家店走
+// 試算還是走記帳應該得到同樣的結論，不然兩邊算出來的回饋會對不上
 const smallPay = ref(false)
 // 國內／國外也自己勾：規則分國內外時，額度用量要跟著分開算才準
 const overseas = ref(false)
@@ -34,6 +37,51 @@ const overseas = ref(false)
 const editing = computed(() =>
   props.editId ? store.expenses.find((e) => e.id === props.editId) : null,
 )
+
+/* ── 名單自動比對 ─────────────────────────── */
+
+// 商家輸入停 250ms 才比對：名單有上萬筆，不要每敲一鍵就整份掃一次。
+// 節奏跟試算頁一致，兩邊的判定時機才不會一個快一個慢
+const settledMerchant = ref('')
+let spDebounce
+watch(merchant, (v) => {
+  clearTimeout(spDebounce)
+  spDebounce = setTimeout(() => {
+    settledMerchant.value = v.trim()
+  }, 250)
+})
+
+// 國外消費不比對：那份名單是國內通路，比了只會誤判成不給回饋
+const spMatch = computed(() =>
+  !overseas.value && settledMerchant.value && store.smallPay?.count
+    ? searchSmallPay(settledMerchant.value, 1)
+    : null,
+)
+const spHit = computed(() => (spMatch.value?.total || 0) > 0)
+// 有比對、但沒命中——要講出來，這正是「記帳時也能查名單」要的那半邊答案
+const spMiss = computed(() => !!spMatch.value && !spHit.value)
+// 跳過比對的理由要說，不然使用者會以為功能壞了
+const spSkippedOverseas = computed(
+  () => overseas.value && !!merchant.value.trim() && !!store.smallPay?.count,
+)
+
+/**
+ * 自動勾選只在使用者還沒自己碰過這個勾選框時生效。
+ *
+ * 名單存的是分店全名，模糊比對誤判很兇（打「全家」會撞到
+ * 「黑松販賣機(康寧大學全家外)」），所以他一旦手動改過就完全交給他，
+ * 不再自動覆蓋回去——不然使用者取消勾選、再多打一個字就被改回來，
+ * 變成跟程式搶方向盤。
+ */
+let spTouched = false
+watch(spHit, (hit) => {
+  if (!spTouched) smallPay.value = hit
+})
+
+function toggleSmallPay() {
+  spTouched = true
+  smallPay.value = !smallPay.value
+}
 
 watch(
   () => props.open,
@@ -52,6 +100,13 @@ watch(
     smallPay.value = e ? e.smallPay === true : pf?.smallPay === true
     overseas.value = e ? e.overseas === true : pf?.overseas === true
     err.value = ''
+
+    // 編輯既有紀錄時當作「已經碰過」：那筆的判定是當初存下來的決定，
+    // 不該因為現在重開面板就被自動比對改掉。新增才交給自動判定。
+    spTouched = !!e
+    // 直接定稿、不走 debounce：帶了商家進來（從試算按「就刷這張」）時，
+    // 面板一開就要看得到比對結果，不是等 250ms 才冒出來
+    settledMerchant.value = merchant.value.trim()
 
     // 等面板滑上來再聚焦，否則 iOS 鍵盤會把動畫卡住。
     // 金額已經帶好時不聚焦：跳鍵盤只會擋住要挑的分類
@@ -172,11 +227,20 @@ function del() {
       </span>
     </button>
 
-    <button type="button" class="toggle-row" @click="smallPay = !smallPay">
+    <!-- 說明文字兼「查名單」：打了商家就把比對結果講在這裡，命中、沒命中、
+         為什麼沒比對，三種都要說。不另外開查詢面板——這個欄位活在 BottomSheet
+         裡，再疊一層 sheet 會跟外層的捲動鎖與 body class 打架（DateField 當初
+         不做彈窗月曆也是同一個理由） -->
+    <button type="button" class="toggle-row" @click="toggleSmallPay">
       <span class="toggle-box" :class="{ on: smallPay }">{{ smallPay ? '✓' : '' }}</span>
       <span class="toggle-text">
         這筆在小額支付/排除名單內
-        <em>排除名單內通路的規則不會給這筆回饋</em>
+        <em v-if="spHit" class="warn">
+          ⚠ 名單裡比對到「{{ spMatch.hits[0] }}」{{ spMatch.total > 1 ? ` 等 ${spMatch.total} 筆` : '' }}
+        </em>
+        <em v-else-if="spMiss">✓「{{ settledMerchant }}」不在名單內</em>
+        <em v-else-if="spSkippedOverseas">國外消費不比對名單（那份是國內通路）</em>
+        <em v-else>排除名單內通路的規則不會給這筆回饋</em>
       </span>
     </button>
 

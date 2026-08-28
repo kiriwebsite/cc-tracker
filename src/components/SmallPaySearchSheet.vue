@@ -1,6 +1,7 @@
 <script setup>
-// 查小額支付/排除名單。純查詢——查到什麼不影響任何計算，
-// 要不要當成名單內由使用者自己在記帳／試算時勾。
+// 設定頁的名單查詢面板：翻名單用的，查什麼都不動到任何一筆紀錄。
+// 記帳與試算另有自動比對（會影響回饋），那兩處是打商家名稱時就地比對、
+// 就地顯示結果，不會叫出這個面板。
 import { ref, computed, watch, nextTick } from 'vue'
 import { store, searchSmallPay } from '../composables/useStore'
 import BottomSheet from './BottomSheet.vue'

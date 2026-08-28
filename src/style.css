@@ -423,6 +423,10 @@ input { font-size: 16px; }
 .toggle-box.on { background: var(--accent); border-color: var(--accent); }
 .toggle-text { font-size: 14px; line-height: 1.35; }
 .toggle-text em { display: block; font-style: normal; font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+/* 命中名單這行是結論不是說明，不能停在灰色。用 .warn 不用 .hot：
+   .hot 在照片模式會被提亮成粉紅（為玻璃卡片調的），而這行活在 BottomSheet
+   的不透明淺底上，提亮反而糊掉 */
+.toggle-text em.warn { color: var(--danger); }
 
 .card-manage { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
 
