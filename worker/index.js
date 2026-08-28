@@ -12,24 +12,39 @@ const TTL = 900 // 15 分鐘
 const MAX_BYTES = 2 * 1024 * 1024 // 2MB：卡面圖是 base64，幾張卡就這個量級
 const CODE_TRIES = 5 // 短碼撞號時的重試次數
 
-const ALLOWED_ORIGINS = [
+// 沒設定 vars 時的預設白名單（本機開發＋個人的 GitHub Pages）
+const DEFAULT_ORIGINS = [
   'https://kiriwebsite.github.io',
   'http://localhost:5173',
   'http://localhost:4173',
 ]
 
-const corsHeaders = (origin) => ({
-  'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+/**
+ * 白名單優先讀 wrangler.toml 的 [vars] ALLOWED_ORIGINS（逗號分隔）。
+ *
+ * 這樣同一份程式碼可以部署成好幾支互不相干的 Worker——各自在自己的
+ * Cloudflare 帳號下、各自設自己的網域，不必改 code 也不必互相依賴。
+ * 部署給別的單位用時，他們只要動自己那份 wrangler.toml。
+ */
+const originsOf = (env) => {
+  const raw = (env?.ALLOWED_ORIGINS || '').trim()
+  if (!raw) return DEFAULT_ORIGINS
+  const list = raw.split(',').map((s) => s.trim()).filter(Boolean)
+  return list.length ? list : DEFAULT_ORIGINS
+}
+
+const corsHeaders = (origin, origins) => ({
+  'Access-Control-Allow-Origin': origins.includes(origin) ? origin : origins[0],
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
   'Vary': 'Origin',
 })
 
-const json = (data, status, origin) =>
+const json = (data, status, origin, origins) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, origins) },
   })
 
 /** 6 位數短碼。用 crypto 而不是 Math.random——後者可預測 */
@@ -55,27 +70,28 @@ async function tooManyUploads(env, ip) {
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || ''
+    const origins = originsOf(env)
     const url = new URL(request.url)
 
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) })
+      return new Response(null, { status: 204, headers: corsHeaders(origin, origins) })
     }
 
     // 上傳：回一個短碼
     if (request.method === 'POST' && url.pathname === '/put') {
       const ip = request.headers.get('CF-Connecting-IP')
       if (await tooManyUploads(env, ip)) {
-        return json({ error: '太頻繁了，等一分鐘再試' }, 429, origin)
+        return json({ error: '太頻繁了，等一分鐘再試' }, 429, origin, origins)
       }
 
       const body = await request.text()
       if (!body || body.length > MAX_BYTES) {
-        return json({ error: '資料是空的或太大（上限 2MB）' }, 413, origin)
+        return json({ error: '資料是空的或太大（上限 2MB）' }, 413, origin, origins)
       }
       try {
         JSON.parse(body) // 壞掉的 JSON 不必浪費 KV 空間
       } catch {
-        return json({ error: '不是合法的 JSON' }, 400, origin)
+        return json({ error: '不是合法的 JSON' }, 400, origin, origins)
       }
 
       // 撞號就換一個。KV 沒有原子性的 put-if-absent，這裡的先讀後寫
@@ -84,9 +100,9 @@ export default {
         const code = newCode()
         if (await env.SYNC.get(`code:${code}`)) continue
         await env.SYNC.put(`code:${code}`, body, { expirationTtl: TTL })
-        return json({ code, expiresIn: TTL }, 200, origin)
+        return json({ code, expiresIn: TTL }, 200, origin, origins)
       }
-      return json({ error: '產生短碼失敗，再試一次' }, 503, origin)
+      return json({ error: '產生短碼失敗，再試一次' }, 503, origin, origins)
     }
 
     // 取用：憑短碼拿回資料。不刪除——傳輸失敗時要能重試，
@@ -94,17 +110,17 @@ export default {
     if (request.method === 'GET' && url.pathname === '/get') {
       const code = (url.searchParams.get('code') || '').trim()
       if (!/^\d{6}$/.test(code)) {
-        return json({ error: '短碼要是 6 位數字' }, 400, origin)
+        return json({ error: '短碼要是 6 位數字' }, 400, origin, origins)
       }
       const data = await env.SYNC.get(`code:${code}`)
       if (!data) {
-        return json({ error: '找不到這組短碼，可能已經過期（15 分鐘）' }, 404, origin)
+        return json({ error: '找不到這組短碼，可能已經過期（15 分鐘）' }, 404, origin, origins)
       }
       return new Response(data, {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, origins) },
       })
     }
 
-    return json({ error: 'Not found' }, 404, origin)
+    return json({ error: 'Not found' }, 404, origin, origins)
   },
 }

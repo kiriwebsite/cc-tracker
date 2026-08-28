@@ -20,6 +20,10 @@ DEPLOY_USER="${DEPLOY_USER:-kiri}"
 DEPLOY_PATH="${DEPLOY_PATH:-/var/www/html/kiri.icantw.com/cc-tracker}"
 DEPLOY_KEY="${DEPLOY_KEY:-$HOME/.ssh/google_compute_engine}"
 SITE_URL="${SITE_URL:-https://kiri.icantw.com/cc-tracker/}"
+# 公司站要用的同步服務網址。空＝不啟用（UI 顯示「尚未設定同步服務」）。
+# 公司自己部署了 Worker 之後填在這裡，或用環境變數帶進來。
+# 千萬不要填個人那支——見下面的防護
+DEPLOY_SYNC_API="${DEPLOY_SYNC_API:-}"
 
 cd "$(dirname "$0")/.."
 
@@ -36,6 +40,16 @@ $SSH_CMD "$DEPLOY_USER@$DEPLOY_HOST" 'echo "  已連上 $(hostname)"' \
 
 # .env.local 的優先權高於環境變數，光是 VITE_SYNC_API= 蓋不掉，只能整個移開。
 # trap 確保不管是失敗、中斷還是正常結束都會還原——這個檔沒進版控，弄丟就得重打。
+# 個人 Worker 的網址：拿來當「絕對不能出現在公司版產物裡」的比對基準。
+# 不能粗略地擋所有 workers.dev——公司自己部署的 Worker 也在那個網域下
+PERSONAL_SYNC=$(sed -n 's/^VITE_SYNC_API=//p' .env.local 2>/dev/null | head -1 | tr -d '"'"'"' \r')
+PERSONAL_HOST=$(printf '%s' "$PERSONAL_SYNC" | sed -E 's#^https?://##; s#/.*$##')
+
+if [ -n "$DEPLOY_SYNC_API" ] && [ -n "$PERSONAL_HOST" ] \
+   && printf '%s' "$DEPLOY_SYNC_API" | grep -qF "$PERSONAL_HOST"; then
+  die "DEPLOY_SYNC_API 指向個人的 Worker（$PERSONAL_HOST）。公司站要用公司自己的那支，見 worker/README.md"
+fi
+
 step "建置（暫時移開 .env.local）"
 ENV_MOVED=0
 restore_env() {
@@ -50,20 +64,28 @@ if [ -f .env.local ]; then
   mv .env.local .env.local.deploybak
   ENV_MOVED=1
 fi
-npm run build
+VITE_SYNC_API="$DEPLOY_SYNC_API" npm run build
 
 step "驗證產物沒有夾帶個人資源"
 # 注意：grep 要用 -q 直接判斷結束碼。串 | head 的話判斷到的是 head 的結束碼，
 # head 永遠回 0，檢查會全部通過（踩過一次）
-for needle in workers.dev cc-tracker-sync kiriwebsite.github.io; do
+for needle in $PERSONAL_HOST kiriwebsite.github.io; do
+  [ -n "$needle" ] || continue
   if grep -rqF "$needle" dist/; then
     die "產物含有 $needle，公司站會依賴個人資源，中止部署"
   fi
   echo "  ✓ 不含 $needle"
 done
-grep -rqF '尚未設定同步服務' dist/assets/ \
-  || die "找不到「尚未設定同步服務」的 UI 分支，同步可能沒被正確關掉"
-echo "  ✓ 同步走的是未設定分支"
+
+if [ -n "$DEPLOY_SYNC_API" ]; then
+  grep -rqF "$DEPLOY_SYNC_API" dist/assets/ \
+    || die "指定了 DEPLOY_SYNC_API 但產物裡找不到，可能沒吃到環境變數"
+  echo "  ✓ 同步指向公司自己的 $DEPLOY_SYNC_API"
+else
+  grep -rqF '尚未設定同步服務' dist/assets/ \
+    || die "找不到「尚未設定同步服務」的 UI 分支，同步可能沒被正確關掉"
+  echo "  ✓ 同步未啟用（走「尚未設定」分支）"
+fi
 
 step "上傳到 $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH"
 $SSH_CMD "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
