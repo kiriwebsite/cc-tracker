@@ -8,7 +8,8 @@
     "predev": "npm run apod",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:kiri": "bash scripts/deploy-kiri.sh"
   },
   "dependencies": {
     "pdfjs-dist": "~5.5.207",
