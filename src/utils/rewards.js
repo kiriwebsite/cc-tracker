@@ -72,19 +72,28 @@ export function daysToExpiry(rule, date) {
  * 才講得出「回饋已於 X/X 到期」而不是含糊的「這筆沒有回饋」。
  */
 function matchesIgnoringExpiry(rule, { smallPay, merchant, overseas }) {
-  if (smallPay && rule.excludeSmallPay) return false
   // 適用範圍：舊資料沒有 region 欄位＝不限，行為與加這功能之前一致
   if (rule.region === 'domestic' && overseas) return false
   if (rule.region === 'overseas' && !overseas) return false
-  if (Array.isArray(rule.merchants) && rule.merchants.length) return !!merchantHit(rule, merchant)
+
+  // 有填 merchants ＝指定商家規則：只認商家命中，命中就給。
+  // 名單排除在這裡不適用——開關的名字就是「**一般消費**排除名單內通路」，
+  // 而你特地為這家店寫了一條規則，代表你已經知道它的回饋條件，
+  // 那份名單不該蓋過你自己的設定。
+  if (Array.isArray(rule.merchants) && rule.merchants.length) {
+    return !!merchantHit(rule, merchant)
+  }
+
+  // 沒填 merchants ＝一般消費，這才是名單排除作用的地方
+  if (smallPay && rule.excludeSmallPay) return false
   return true
 }
 
 /**
  * 這筆消費適用這條規則嗎？
- * - 「排除名單內通路」一票否決——特約商家也蓋不過，要不要排除由規則自己設
- * - 適用範圍對不上（規則限國內、這筆是國外，或反過來）也一票否決
- * - 有填 merchants ＝指定商家規則：只認商家命中；沒填＝一般消費，什麼都適用
+ * - 適用範圍對不上（規則限國內、這筆是國外，或反過來）一票否決
+ * - 有填 merchants ＝指定商家規則：只認商家命中，且**優先於名單排除**
+ * - 沒填＝一般消費：什麼都適用，但會吃「排除名單內通路」那個開關
  * - 過期的規則不給回饋：算錯會讓人刷錯卡，比不算更糟
  * 規則不看分類（2026-08-21 使用者定案）：舊資料的 categories 欄位一律忽略。
  */

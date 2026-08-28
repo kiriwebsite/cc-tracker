@@ -332,8 +332,8 @@ function del() {
         placeholder="例：肯德基、麥當勞、星巴克&#10;整串特約商店清單直接貼上也行"
       ></textarea>
       <p v-if="r.merchantsText.trim()" class="rule-hint">
-        有填商家時，這條規則只給清單裡的店回饋。
-        特約店若常被歸進名單，記得把下面的「一般消費排除名單內通路」關掉。
+        有填商家時，這條規則只給清單裡的店回饋，
+        而且優先於下面的「一般消費排除名單內通路」——特約店就算被歸進名單也照給。
       </p>
 
       <label class="field-label">適用範圍</label>
