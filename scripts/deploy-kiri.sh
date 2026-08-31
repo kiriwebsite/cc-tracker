@@ -50,6 +50,13 @@ if [ -n "$DEPLOY_SYNC_API" ] && [ -n "$PERSONAL_HOST" ] \
   die "DEPLOY_SYNC_API 指向個人的 Worker（$PERSONAL_HOST）。公司站要用公司自己的那支，見 worker/README.md"
 fi
 
+# 每日底圖：build 不會自己抓（抓圖掛在 predev 上），少了這行就會把上次部署
+# 留在 public/ 的舊圖原封再貼一次，公司站的底圖等於凍結在第一次部署那天。
+# 必須放在移開 .env.local 之前——正式站那份取不到而要退回打 NASA API 時，
+# 金鑰是從 .env.local 讀的。抓失敗不中止部署，沿用既有的圖照樣上線
+step "更新 APOD 底圖"
+npm run apod || echo "  抓圖失敗，沿用 public/ 既有的圖"
+
 step "建置（暫時移開 .env.local）"
 ENV_MOVED=0
 restore_env() {
