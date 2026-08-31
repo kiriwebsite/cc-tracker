@@ -49,9 +49,21 @@ const spMatch = computed(() =>
     : null,
 )
 // 國外消費不比對名單：那份名單是國內通路，比了只會誤判成不給回饋
-const isSmallPayHit = computed(() => (spMatch.value?.sureTotal || 0) > 0)
+const spListed = computed(() => (spMatch.value?.sureTotal || 0) > 0)
+
+/**
+ * 手動關掉這筆的名單排除。名單命中是自動判定的，但「在名單裡」不等於
+ * 「這張卡不給回饋」——使用者自己知道某張卡刷這家店照樣有，這時候該讓
+ * 他推翻程式的結論，而不是逼他回卡片頁改規則（改了會影響所有消費）。
+ *
+ * 只作用在這一筆試算：換商家或切國內外就重置，不寫進任何設定。
+ */
+const spOff = ref(false)
+watch([settled, overseas], () => (spOff.value = false))
+
+const isSmallPayHit = computed(() => spListed.value && !spOff.value)
 const isSmallPayMaybe = computed(
-  () => !isSmallPayHit.value && (spMatch.value?.maybeTotal || 0) > 0,
+  () => !spListed.value && (spMatch.value?.maybeTotal || 0) > 0,
 )
 
 // 點過候選就收起清單，直到使用者又動了輸入框。不能只在 watch(merchant)
@@ -97,10 +109,10 @@ const rest = computed(() => (best.value ? results.value.slice(1) : results.value
  * 刷完直接記一筆：把試算的條件原封帶進記帳面板（金額、卡片、商家、小額判定）。
  * 不直接寫進資料——分類要使用者自己挑，日期也可能要改，讓他按下儲存才算數。
  */
-function recordBest() {
+function record(result) {
   emit('record', {
     amount: amt.value,
-    cardId: best.value.card.id,
+    cardId: result.card.id,
     merchant: settled.value,
     smallPay: isSmallPayHit.value,
     overseas: overseas.value,
@@ -171,11 +183,27 @@ function roomText(r) {
       <div class="sim-cond">國外消費不比對小額支付/排除名單（那份是國內通路）</div>
     </template>
     <div v-else-if="checking" class="sim-cond">比對小額支付/排除名單中…</div>
-    <div v-else-if="settled && store.smallPay?.count" class="sim-cond">
-      <span v-if="isSmallPayHit" class="hot">
-        ⚠ 在小額支付/排除名單內：{{ spMatch.sure[0] }}{{ spMatch.sureTotal > 1 ? ` 等 ${spMatch.sureTotal} 筆` : '' }}
+    <!-- 命中名單那行可以點掉：名單說了不算，使用者說了才算（見 spOff）。
+         另外兩種狀態沒有東西可推翻，維持純文字 -->
+    <button
+      v-else-if="settled && store.smallPay?.count && spListed"
+      type="button"
+      class="sim-cond sp-toggle"
+      :class="{ hot: !spOff }"
+      @click="spOff = !spOff"
+    >
+      <span>
+        <template v-if="!spOff">
+          ⚠ 在小額支付/排除名單內：{{ spMatch.sure[0] }}{{ spMatch.sureTotal > 1 ? ` 等 ${spMatch.sureTotal} 筆` : '' }}
+        </template>
+        <template v-else>
+          ✓ 這筆不當名單內算（{{ spMatch.sure[0] }}）
+        </template>
       </span>
-      <span v-else-if="isSmallPayMaybe">
+      <span class="sp-toggle-act">{{ spOff ? '改回名單內 ›' : '不算這筆 ›' }}</span>
+    </button>
+    <div v-else-if="settled && store.smallPay?.count" class="sim-cond">
+      <span v-if="isSmallPayMaybe">
         名單裡有 {{ spMatch.maybeTotal }} 筆含「{{ settled }}」（例如「{{ spMatch.maybe[0] }}」）。
         下面的試算沒有把它當名單內算
       </span>
@@ -232,7 +260,7 @@ function roomText(r) {
           ⚠ {{ best.bestRate }}% 那條額度已用完，這筆只能吃 {{ best.pickedRate }}%
         </div>
 
-        <button type="button" class="sim-record" @click="recordBest">
+        <button type="button" class="sim-record" @click="record(best)">
           就刷這張，記一筆
         </button>
       </div>
@@ -250,13 +278,19 @@ function roomText(r) {
         </div>
       </div>
 
-      <div v-if="rest.length" class="section-title">其他卡</div>
+      <div v-if="rest.length" class="section-title sim-rest-title">
+        其他卡<span class="sim-rest-note">點一下就記這張</span>
+      </div>
       <div class="sim-list">
-        <div
+        <!-- 整列是按鈕：建議的那張只是回饋最高，使用者要刷哪張是他的事，
+             用 button 而不是加 @click 的 div，鍵盤與輔助工具才認得 -->
+        <button
           v-for="r in rest"
           :key="r.card.id"
+          type="button"
           class="sim-row"
           :class="{ dim: r.reward <= 0 }"
+          @click="record(r)"
         >
           <span class="dot" :style="cardThumb(r.card)"></span>
           <div class="sim-mid">
@@ -294,7 +328,7 @@ function roomText(r) {
           <div class="sim-amt" :class="{ zero: r.reward <= 0 }">
             {{ r.reward > 0 ? money(r.reward) : '—' }}
           </div>
-        </div>
+        </button>
       </div>
     </template>
   </template>

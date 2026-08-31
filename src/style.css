@@ -381,6 +381,14 @@ input { font-size: 16px; }
 .sim-warn { margin-top: 10px; font-size: 13px; color: var(--danger); font-weight: 600; }
 /* 特約商家命中與條件提醒：資訊性，不用警示色 */
 .sim-cond { margin-top: 8px; font-size: 13px; color: var(--text-dim); font-weight: 600; }
+/* 名單命中那行可以點掉。外觀維持資訊行、不做成按鈕的樣子——
+   它是提示，不該跟「就刷這張，記一筆」搶主要行動的位置 */
+.sp-toggle {
+  display: flex; width: 100%; text-align: left;
+  align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.sp-toggle-act { flex: none; text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+.sp-toggle:active { opacity: .6; }
 
 .sim-none {
   background: var(--surface); border-radius: var(--radius);
@@ -390,12 +398,19 @@ input { font-size: 16px; }
 .sim-none-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
 
 .sim-list { display: flex; flex-direction: column; gap: 8px; }
+/* 整列是 button（點了就用那張卡記一筆），把 button 的預設外觀壓掉 */
 .sim-row {
   display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left; font-size: inherit;
   background: var(--surface); border-radius: 14px;
   padding: 12px 14px; box-shadow: var(--shadow);
 }
+.sim-row:active { filter: brightness(.96); }
 .sim-row.dim { opacity: .72; }
+/* 回饋 0 的卡照樣可以點——但按下去要有反應，不然會以為壞了 */
+.sim-row.dim:active { opacity: .6; }
+.sim-rest-title { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.sim-rest-note { font-weight: 500; opacity: .8; }
 .sim-mid { flex: 1; min-width: 0; }
 .sim-name { font-size: 15px; font-weight: 600; }
 .sim-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
