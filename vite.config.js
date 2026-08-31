@@ -10,6 +10,21 @@ export default defineConfig({
   // 免得舊的 dev server 還佔著 5173 就啟不動
   server: { port: Number(process.env.PORT) || 5173 },
 
+  build: {
+    rollupOptions: {
+      output: {
+        // 公司站的 nginx（mime.types 沒收錄 .mjs）對 .mjs 回 application/octet-stream，
+        // module worker 的嚴格 MIME 檢查會直接拒載，pdf.js 的 worker 起不來、匯入名單
+        // 一律失敗（2026-08-31 實測，GitHub Pages 回 text/javascript 所以只有公司站壞）。
+        // 副檔名改成 .js 就繞開了，引用由 rollup 自己改寫
+        assetFileNames: (info) => {
+          const n = info.names?.[0] || info.name || ''
+          return n.endsWith('.mjs') ? 'assets/[name]-[hash].js' : 'assets/[name]-[hash][extname]'
+        },
+      },
+    },
+  },
+
   plugins: [
     vue(),
 
@@ -43,7 +58,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,jpg,svg,json,webmanifest}'],
         // pdf.js 只有匯入小額支付/排除名單時才用得到（一季一次），
         // 佔掉大半離線快取不划算——留給網路現抓。worker 是 .mjs，本來就不在上面的清單裡
-        globIgnores: ['**/pdf-*.js'],
+        globIgnores: ['**/pdf-*.js', '**/pdf.worker.min-*.js'],
         cleanupOutdatedCaches: true,
         // APOD 星空圖抓過一次就進快取，離線也有背景可看
         runtimeCaching: [
