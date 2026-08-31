@@ -182,9 +182,11 @@ function roomText(r) {
       <span v-else>✓ 不在小額支付/排除名單內</span>
     </div>
 
-    <!-- 不用 v-if 藏起來：藏了就沒人知道有這個功能，實際上讓人困惑了兩次。
-         還沒匯入名單也照樣顯示，點進去面板會說要先去匯入 -->
-    <button type="button" class="sp-search-link" @click="searchOpen = true">
+    <!-- 國內時不用 v-if 藏起來：藏了就沒人知道有這個功能，實際上讓人困惑了兩次。
+         還沒匯入名單也照樣顯示，點進去面板會說要先去匯入。
+         國外是唯一的例外——那份名單是國內通路，這筆根本不比對（上面那行
+         sim-cond 已經講了），再放一個查詢入口只會讓人以為查了有用 -->
+    <button v-if="!overseas" type="button" class="sp-search-link" @click="searchOpen = true">
       {{ store.smallPay?.count ? '查這家店在不在小額支付/排除名單裡 ›' : '匯入小額支付/排除名單後可在這裡查通路 ›' }}
     </button>
 
