@@ -254,10 +254,13 @@ export const isSmallPay = (e) => e.smallPay === true
  * 不回傳「在不在名單內」：候選本來就有一半是從名單撈出來的，標了是自己
  * 講自己；而且記帳是在記錄事實不是做選擇，先警告改變不了使用者要點哪個。
  * 名單的後果由勾選框底下那行在選完之後講。
+ *
+ * 回傳 { items, total }：items 是要渲染的那些（受 limit 限制），
+ * total 是符合的總數，UI 靠它講「還有幾筆」。
  */
-export function suggestMerchants(q, limit = 6) {
+export function suggestMerchants(q, limit = 200) {
   const k = matchKey(q)
-  if (!k) return []
+  if (!k) return { items: [], total: 0 }
 
   const seen = new Set()
   const past = []
@@ -274,17 +277,23 @@ export function suggestMerchants(q, limit = 6) {
     past.push({ name, past: true, head: key.startsWith(k) })
   }
 
+  // 整份掃完，不再湊夠就停。要讓使用者滾到底，就得先知道到底有幾筆，
+  // 而且「開頭吻合排前面」只有在候選全都收齊之後排序才算數——舊版掃到
+  // 第 24 筆就停，開頭吻合的若排在名單後段根本進不了清單。
+  // spKeys 是預先算好的，1.7 萬筆做 includes 是一次線性掃描，配上 120ms
+  // 的 debounce 綽綽有餘
   for (let i = 0; i < spKeys.length; i++) {
     const key = spKeys[i]
     if (!key || seen.has(key) || !key.includes(k)) continue
     seen.add(key)
     listed.push({ name: spChannels[i], past: false, head: key.startsWith(k) })
-    // 上萬筆不必全掃完，湊夠可以排序的量就夠了
-    if (listed.length >= limit * 4) break
   }
 
   const byHead = (a, b) => Number(b.head) - Number(a.head)
-  return [...past.sort(byHead), ...listed.sort(byHead)].slice(0, limit)
+  const all = [...past.sort(byHead), ...listed.sort(byHead)]
+  // total 給 UI 講「還有幾筆沒列出來」。limit 是渲染上限不是搜尋上限：
+  // 幾千個 DOM 節點在手機上會卡，超過的請使用者多打幾個字縮小範圍
+  return { items: all.slice(0, limit), total: all.length }
 }
 
 /**

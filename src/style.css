@@ -450,8 +450,14 @@ input { font-size: 16px; }
   margin-top: 6px;
   background: var(--surface);
   border-radius: 12px;
-  overflow: hidden;
   box-shadow: var(--shadow);
+  /* 清單是佔版面推開後面內容的（不做浮層，理由見元件註解），
+     所以高度要自己封頂，否則一次幾百筆會把整頁撐爆。
+     封頂之後裡面自己捲——使用者要看得到後面還有什麼 */
+  max-height: 300px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .ms-item {
   display: flex;
@@ -464,10 +470,20 @@ input { font-size: 16px; }
   color: var(--text);
   border-bottom: 1px solid var(--line);
 }
-.ms-item:last-child { border-bottom: none; }
+.ms-item:last-of-type { border-bottom: none; }
 .ms-item:active { background: var(--accent-soft); }
 .ms-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* 只有「記過」一種標記，低調就好——它是幫你認出自己記過的店，不是警告 */
+/* 「還有 N 筆」：黏在清單底部，捲到哪都看得到 */
+.ms-more {
+  position: sticky;
+  bottom: 0;
+  padding: 9px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
 .ms-tag {
   flex: none;
   font-size: 11px;
