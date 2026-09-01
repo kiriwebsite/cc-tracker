@@ -6,3 +6,22 @@ compatibility_date = "2026-08-21"
 [[kv_namespaces]]
 binding = "SYNC"
 id = "c3b74f32ca2e45088e90ce70c5d0758b"
+
+# ── 公司帳號的部署（npx wrangler deploy --env company）─────────────
+#
+# 同一份程式碼、兩個互不相干的部署：個人站用上面那組（預設 env），
+# 公司站用這組。分開的理由見 README——帳單、維護、離職交接都不該
+# 跨組織綁在一起。
+#
+# named environment 的欄位不會從上面繼承，kv_namespaces 與 vars 都要自己寫一份。
+# name 也要明寫：不寫的話 wrangler 會自動加後綴部署成 cc-tracker-sync-company。
+[env.company]
+name = "cc-tracker-sync"
+vars = { ALLOWED_ORIGINS = "https://kiri.icantw.com,http://localhost:5173" }
+
+# 公司帳號自己的 KV。在**公司帳號**登入的狀態下跑
+#   npx wrangler kv namespace create SYNC --env company
+# 把它印出來的 id 換掉下面這行的 placeholder（跟上面個人那顆是不同的兩顆）
+[[env.company.kv_namespaces]]
+binding = "SYNC"
+id = "TODO_跑上面那行指令拿到公司帳號的_KV_id_再填"

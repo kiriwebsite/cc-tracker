@@ -24,22 +24,39 @@ JSON 備份匯出／匯入。
 
 ## 部署（每個帳號各做一次）
 
+兩個部署在 `wrangler.toml` 裡是兩個 environment：個人站用最上面那組（預設），
+公司站用 `[env.company]`。**每次部署都要明講是哪一個**，wrangler 也會在你
+沒指定時警告：
+
+| 部署對象 | 指令 |
+|---|---|
+| 個人（GitHub Pages） | `npx wrangler deploy --env=""` |
+| 公司（kiri.icantw.com） | `npx wrangler deploy --env company` |
+
+`--env=""` 的空字串就是「最上面那組」。省略 `--env` 也還是會部署到那組，
+只是會跳一則警告叫你講清楚。
+
+### 新帳號第一次部署
+
 ```bash
 cd worker
-npx wrangler login                          # 開瀏覽器登入 Cloudflare（免費帳號即可）
-npx wrangler kv namespace create SYNC       # 產生 KV，把印出來的 id 填進 wrangler.toml
-npx wrangler deploy                         # 部署，會印出 https://cc-tracker-sync.xxx.workers.dev
+npx wrangler login                                    # 開瀏覽器登入（免費帳號即可）
+npx wrangler kv namespace create SYNC --env company   # 建 KV，把印出來的 id 填進 wrangler.toml
+npx wrangler deploy --env company                     # 印出 https://cc-tracker-sync.xxx.workers.dev
 ```
 
-接著在 `wrangler.toml` 加上自己的網域白名單（逗號分隔，不要留空白以外的東西）：
+**KV 是每個帳號各一顆**，id 不能共用——`[env.company]` 底下那個 id 現在是
+placeholder，第二行印出什麼就換成什麼。忘了換的話部署會失敗說找不到那顆 KV。
+
+白名單寫在各自的 environment 裡（逗號分隔，完整 origin，不含結尾斜線）：
 
 ```toml
-[vars]
-ALLOWED_ORIGINS = "https://你的網域,http://localhost:5173"
+[env.company]
+vars = { ALLOWED_ORIGINS = "https://kiri.icantw.com,http://localhost:5173" }
 ```
 
-改完再 `npx wrangler deploy` 一次。**沒設 `ALLOWED_ORIGINS` 會退回程式碼裡的
-預設值（個人的網域），你的站會被 CORS 擋掉**——這是最常見的卡關點。
+**沒設 `ALLOWED_ORIGINS` 會退回程式碼裡的預設值（個人的網域），你的站會被
+CORS 擋掉**——這是最常見的卡關點。個人那組刻意不設，就是靠這個預設值。
 
 ## 前端怎麼指到這支 Worker
 
