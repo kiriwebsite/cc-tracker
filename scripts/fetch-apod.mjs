@@ -77,15 +77,44 @@ async function fetchApod(date, t) {
   return res.json()
 }
 
+/**
+ * 從目標日往前找第一張真的拿得到圖的 APOD。
+ *
+ * 兩種失敗都要退一天，這是 2026-08-31 踩到的坑：原本只有「API 呼叫失敗」
+ * 會重試，「抓到了但不是圖」是在重試外面才 throw，於是整天份直接放棄。
+ *   1. API 對那個日期失敗（發布延遲、503）
+ *   2. 那天是影片而且沒有縮圖——thumbs=true 只對 YouTube/Vimeo 產得出
+ *      縮圖，其他來源（那天是 Roman 太空望遠鏡的發射影片）就是空的
+ *
+ * 影片日很少連著好幾天，往前找 4 天綽綽有餘；每次 API 呼叫正常在 1 秒內，
+ * 全部用完也吃不掉多少下圖的預算。
+ */
+async function findImage(t, maxBack = 4) {
+  const tried = []
+  for (let back = 0; back <= maxBack; back++) {
+    const date = dateStr(back)
+    let meta
+    try {
+      meta = await fetchApod(date, t)
+    } catch (e) {
+      tried.push(`${date} ${describe(e)}`)
+      continue
+    }
+    const src = meta.media_type === 'image' ? meta.url : meta.thumbnail_url
+    if (src) return { meta, src }
+    tried.push(`${date} ${meta.media_type} 無縮圖`)
+  }
+  throw new Error(`往前 ${maxBack + 1} 天都沒有可用圖片（${tried.join('，')}）`)
+}
+
 async function run() {
-  // 整趟（重試＋下圖）共用一個 20 秒預算
+  // 整趟（往前找＋下圖）共用一個 20 秒預算
   const t = timeout(20000)
 
-  // 目標日抓不到（發布延遲、API 抽風）就退一天重試
-  const meta = await fetchApod(dateStr(0), t).catch(() => fetchApod(dateStr(1), t))
-
-  const src = meta.media_type === 'image' ? meta.url : meta.thumbnail_url
-  if (!src) throw new Error('當日無可用圖片（media_type: ' + meta.media_type + '）')
+  const { meta, src } = await findImage(t)
+  if (meta.date !== dateStr(0)) {
+    console.log(`APOD ${dateStr(0)} 沒有可用圖片，退到 ${meta.date}`)
+  }
 
   const img = await fetch(src, t)
   if (!img.ok) throw new Error('圖片下載回 ' + img.status)

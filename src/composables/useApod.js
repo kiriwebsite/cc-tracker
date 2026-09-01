@@ -12,9 +12,9 @@ const CACHE_KEY = 'cc-tracker-apod'
 
 // 備援路徑用：APOD 以美東時間換日，台灣快了約 12 小時，
 // 「本地今天」常常還沒發布；退一天永遠存在。
-const targetDate = () => {
+const targetDate = (back = 0) => {
   const d = new Date()
-  d.setDate(d.getDate() - 1)
+  d.setDate(d.getDate() - 1 - back)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
@@ -79,19 +79,28 @@ export async function initApod() {
   // 備援：client 直接打 APOD API
   const want = targetDate()
   if (cached?.date === want) return
-  try {
-    const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${API_KEY}&date=${want}&thumbs=true`)
-    if (!res.ok) return
-    const data = await res.json()
-    const url = data.media_type === 'image' ? data.url : data.thumbnail_url
-    if (!url) return
-    localStorage.setItem(
-      CACHE_KEY,
-      JSON.stringify({ date: want, url, title: data.title, light: false, p75: 0.4 }),
-    )
-    apply(url)
-    applyTone(false, 0.4)
-  } catch {
-    /* 離線：沿用快取，或維持素色背景 */
+
+  // 那天是影片而且沒有縮圖就退一天（thumbs=true 只對 YouTube/Vimeo 有效）。
+  // 跟 fetch-apod.mjs 同一個坑，但這邊只試兩天：瀏覽器端是每個訪客各打一次，
+  // 不值得為了背景圖多燒 API 額度——正常情況根本走不到這條備援
+  for (let back = 0; back < 2; back++) {
+    const date = targetDate(back)
+    try {
+      const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${API_KEY}&date=${date}&thumbs=true`)
+      if (!res.ok) continue
+      const data = await res.json()
+      const url = data.media_type === 'image' ? data.url : data.thumbnail_url
+      if (!url) continue
+      localStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({ date, url, title: data.title, light: false, p75: 0.4 }),
+      )
+      apply(url)
+      applyTone(false, 0.4)
+      return
+    } catch {
+      // 離線：沿用快取或維持素色背景，再試第二天也是一樣的結果
+      return
+    }
   }
 }
