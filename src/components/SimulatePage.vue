@@ -180,7 +180,6 @@ function roomText(r) {
       <p class="sim-warn">
         ⚠ 國外消費多半另收 1.5% 國外交易手續費<template v-if="amt">（這筆約 {{ money(amt * 0.015) }}）</template>，下面算的回饋沒有扣掉
       </p>
-      <div class="sim-cond">國外消費不比對小額支付/排除名單（那份是國內通路）</div>
     </template>
     <div v-else-if="checking" class="sim-cond">比對小額支付/排除名單中…</div>
     <!-- 命中名單那行可以點掉：名單說了不算，使用者說了才算（見 spOff）。
