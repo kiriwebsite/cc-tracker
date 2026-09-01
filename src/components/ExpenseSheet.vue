@@ -39,6 +39,12 @@ const editing = computed(() =>
   props.editId ? store.expenses.find((e) => e.id === props.editId) : null,
 )
 
+/**
+ * 這次開面板是從試算頁帶條件進來的嗎。
+ * 編輯既有紀錄不算：那時使用者是在修一筆舊帳，該讓他改得動。
+ */
+const fromSim = computed(() => !editing.value && !!props.prefill)
+
 /* ── 名單自動比對 ─────────────────────────── */
 
 // 商家輸入停 250ms 才比對：名單有上萬筆，不要每敲一鍵就整份掃一次。
@@ -245,7 +251,17 @@ function del() {
     />
     <MerchantSuggest :query="merchant" :suppressed="suggestOff" @pick="pickMerchant" />
 
-    <button type="button" class="toggle-row" @click="overseas = !overseas">
+    <!-- 從試算頁按「記一筆」進來的：國內／國外在那邊就選定了，不再問第二次。
+         只有國外留一行字——它是少數情況，使用者得看得出這筆被記成什麼；
+         國內是預設值，講了反而是雜訊。想改就回試算頁改，因為「建議刷哪張」
+         本來就是照那個前提算出來的,在這裡改掉會跟剛才看到的結果對不起來 -->
+    <p v-if="fromSim && overseas" class="ex-prefilled">✈ 這筆記為國外消費（試算時選的）</p>
+    <button
+      v-else-if="!fromSim"
+      type="button"
+      class="toggle-row"
+      @click="overseas = !overseas"
+    >
       <span class="toggle-box" :class="{ on: overseas }">{{ overseas ? '✓' : '' }}</span>
       <span class="toggle-text">
         這筆是國外消費

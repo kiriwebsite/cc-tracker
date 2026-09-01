@@ -596,6 +596,18 @@ input { font-size: 16px; }
 .cat-row-label { display: flex; align-items: center; gap: 10px; }
 .chev { color: var(--text-dim); font-size: 20px; line-height: 1; }
 
+/* 從試算帶進來、不再讓人改的條件：長得像說明而不是像可點的東西，
+   免得使用者去戳它 */
+.ex-prefilled {
+  margin-top: 4px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
 /* ── 分類長按拖曳排序 ───────────────────────── */
 /* 長按時 iOS 會跳放大鏡與選字、Android 會跳選單，兩個都要關掉，
    不然手指還沒開始拖就被系統 UI 蓋住 */

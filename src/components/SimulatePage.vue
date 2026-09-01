@@ -327,6 +327,9 @@ function roomText(r) {
           <div class="sim-amt" :class="{ zero: r.reward <= 0 }">
             {{ r.reward > 0 ? money(r.reward) : '—' }}
           </div>
+          <!-- 整列可點，但沒有這個符號沒人看得出來。首選那張用實心按鈕、
+               這裡只用 chevron：兩者都能記一筆，但建議的那張要更重 -->
+          <span class="chev" aria-hidden="true">›</span>
         </button>
       </div>
     </template>
