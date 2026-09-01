@@ -24,4 +24,4 @@ vars = { ALLOWED_ORIGINS = "https://kiri.icantw.com,http://localhost:5173" }
 # 把它印出來的 id 換掉下面這行的 placeholder（跟上面個人那顆是不同的兩顆）
 [[env.company.kv_namespaces]]
 binding = "SYNC"
-id = "TODO_跑上面那行指令拿到公司帳號的_KV_id_再填"
+id = "db5b62f69d564b928354d35fa1a9ecda"
