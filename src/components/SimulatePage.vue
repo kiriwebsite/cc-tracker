@@ -246,30 +246,44 @@ function roomText(r) {
           <small v-if="best.card.last4">•••• {{ best.card.last4 }}</small>
         </div>
         <div class="sim-best-reward">回饋 {{ money(best.reward) }}</div>
-        <!-- 疊加時每條規則各列一行：使用者要看得到 1% 和 4% 分別給了多少、各自還剩多少額度 -->
-        <template v-for="x in best.rules" :key="x.rule.id">
-          <div class="sim-best-rule">
-            {{ ruleLabel(x.rule) }} ・ {{ x.rule.rate
-            }}%<template v-if="best.stacked"> ・ +{{ money(x.reward) }}</template> ・ {{ roomText(x) }}
+        <!-- 每條規則各成一組：主行「名稱 ── 趴數 加了多少」，額度與條件縮排掛在
+             它底下。原本四段資訊用「・」串成一行，長了會折行，折出來的那行跟
+             下一條規則長得一樣，三條疊起來整區就糊成一片（使用者回報看得眼花） -->
+        <div v-for="x in best.rules" :key="x.rule.id" class="sim-rule">
+          <div class="sim-rule-head">
+            <span class="sim-rule-name">{{ ruleLabel(x.rule) }}</span>
+            <span class="sim-rule-rate">{{ x.rule.rate }}%</span>
+            <!-- 疊加時才有意義：使用者要能自己把幾條的金額加起來對上總回饋，
+                 所以靠右對齊、等寬數字。寫成「4% = $4」而不是「+$4」——
+                 讀的是趴數換算成多少錢，加總是第二層的事 -->
+            <span v-if="best.stacked" class="sim-rule-add">= {{ money(x.reward) }}</span>
           </div>
-          <div v-if="x.hitKeyword || x.rule.note" class="sim-cond">
+
+          <div class="sim-rule-meta">{{ roomText(x) }}</div>
+
+          <!-- 名單命中卻還有回饋時要講清楚是靠什麼——不然使用者會以為算錯了 -->
+          <div v-if="isSmallPayHit && x.rule.excludeSmallPay && x.rule.mobilePay" class="sim-rule-meta">
+            📱 這條靠行動支付才不受名單限制（實際以銀行判定為準）
+          </div>
+          <div v-if="x.hitKeyword || x.rule.note" class="sim-rule-meta">
             <template v-if="x.hitKeyword">✓ 特約商家「{{ x.hitKeyword }}」</template>
-            <template v-if="x.hitKeyword && x.rule.note"> ・ </template>
+            <template v-if="x.hitKeyword && x.rule.note"><br /></template>
             <template v-if="x.rule.note">📌 {{ x.rule.note }}</template>
           </div>
-          <div v-if="expiringSoon(x)" class="sim-warn">
-            ⚠ {{ best.stacked ? `${x.rule.rate}% 這條` : '這個回饋' }} {{ expiryLabel(x.rule.expiry) }} 到期{{ x.expiresIn > 0 ? `，只剩 ${x.expiresIn} 天` : '，今天最後一天' }}
+
+          <div v-if="expiringSoon(x)" class="sim-rule-meta hot">
+            ⚠ {{ best.stacked ? '這條' : '這個回饋' }} {{ expiryLabel(x.rule.expiry) }} 到期{{ x.expiresIn > 0 ? `，只剩 ${x.expiresIn} 天` : '，今天最後一天' }}
           </div>
-          <div v-else-if="x.capped && best.stacked" class="sim-warn">
-            ⚠ {{ x.rule.rate }}% 這條本月已封頂，這筆吃不到
+          <div v-else-if="x.capped && best.stacked" class="sim-rule-meta hot">
+            ⚠ 這條本月已封頂，這筆吃不到
           </div>
-          <div v-else-if="x.partial" class="sim-warn">
-            ⚠ {{ best.stacked ? `${x.rule.rate}% 這條` : '這筆' }}會刷破上限，只有部分金額拿到回饋
+          <div v-else-if="x.partial" class="sim-rule-meta hot">
+            ⚠ {{ best.stacked ? '這條' : '這筆' }}會刷破上限，只有部分金額拿到回饋
           </div>
-          <div v-else-if="x.status?.near" class="sim-warn">
-            ⚠ {{ best.stacked ? `${x.rule.rate}% 這條` : '這條' }}額度快滿了
+          <div v-else-if="x.status?.near" class="sim-rule-meta hot">
+            ⚠ 這條額度快滿了
           </div>
-        </template>
+        </div>
         <div v-if="best.downgraded" class="sim-warn">
           ⚠ {{ best.bestRate }}% 那條額度已用完，這筆只能吃 {{ best.pickedRate }}%
         </div>
@@ -309,33 +323,36 @@ function roomText(r) {
           <span class="dot" :style="cardThumb(r.card)"></span>
           <div class="sim-mid">
             <div class="sim-name">{{ r.card.name }}</div>
-            <div class="sim-sub">
-              <template v-if="r.noRule">未設回饋規則</template>
-              <span v-else-if="r.expiredRule" class="hot">
-                {{ ruleLabel(r.expiredRule) }} {{ r.expiredRule.rate }}% 已於 {{ expiryLabel(r.expiredRule.expiry) }} 到期
-              </span>
-              <template v-else-if="r.noMatch">這筆消費沒有回饋</template>
-              <span v-else-if="r.capped" class="hot">本月已封頂</span>
-              <template v-else>
-                <div v-for="x in r.rules" :key="x.rule.id">
-                  {{ ruleLabel(x.rule) }} ・ {{ x.rule.rate
-                  }}%<template v-if="r.stacked"> ・ +{{ money(x.reward) }}</template> ・ {{ roomText(x) }}
-                </div>
-              </template>
+            <div v-if="r.noRule" class="sim-sub">未設回饋規則</div>
+            <div v-else-if="r.expiredRule" class="sim-sub hot">
+              {{ ruleLabel(r.expiredRule) }} {{ r.expiredRule.rate }}% 已於 {{ expiryLabel(r.expiredRule.expiry) }} 到期
             </div>
-            <template v-if="r.reward > 0">
-              <div
-                v-for="x in r.rules"
-                :key="`${x.rule.id}-info`"
-                v-show="expiringSoon(x) || x.hitKeyword || x.rule.note"
-                class="sim-sub"
-                :class="{ hot: expiringSoon(x) }"
-              >
-                <template v-if="expiringSoon(x)">⚠ {{ expiryLabel(x.rule.expiry) }} 到期</template>
-                <template v-if="expiringSoon(x) && (x.hitKeyword || x.rule.note)"> ・ </template>
-                <template v-if="x.hitKeyword">✓ 特約「{{ x.hitKeyword }}」</template>
-                <template v-if="x.hitKeyword && x.rule.note"> ・ </template>
-                <template v-if="x.rule.note">📌 {{ x.rule.note }}</template>
+            <div v-else-if="r.noMatch" class="sim-sub">這筆消費沒有回饋</div>
+            <div v-else-if="r.capped" class="sim-sub hot">本月已封頂</div>
+
+            <!-- 跟首選同一套版型（使用者定案），字級小一級：這裡是次要資訊，
+                 而且每列右邊還有總金額與 chevron 要留位置。
+                 警告只留「快到期」——封頂／刷破上限那些留給首選講，
+                 每張卡都攤開會讓列表長到看不完 -->
+            <template v-else>
+              <div v-for="x in r.rules" :key="x.rule.id" class="sim-rule">
+                <div class="sim-rule-head">
+                  <span class="sim-rule-name">{{ ruleLabel(x.rule) }}</span>
+                  <span class="sim-rule-rate">{{ x.rule.rate }}%</span>
+                  <span v-if="r.stacked" class="sim-rule-add">= {{ money(x.reward) }}</span>
+                </div>
+                <div class="sim-rule-meta">{{ roomText(x) }}</div>
+                <div v-if="isSmallPayHit && x.rule.excludeSmallPay && x.rule.mobilePay" class="sim-rule-meta">
+                  📱 靠行動支付才不受名單限制
+                </div>
+                <div v-if="x.hitKeyword || x.rule.note" class="sim-rule-meta">
+                  <template v-if="x.hitKeyword">✓ 特約「{{ x.hitKeyword }}」</template>
+                  <template v-if="x.hitKeyword && x.rule.note"><br /></template>
+                  <template v-if="x.rule.note">📌 {{ x.rule.note }}</template>
+                </div>
+                <div v-if="expiringSoon(x)" class="sim-rule-meta hot">
+                  ⚠ {{ expiryLabel(x.rule.expiry) }} 到期
+                </div>
               </div>
             </template>
           </div>

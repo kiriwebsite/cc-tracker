@@ -364,7 +364,37 @@ input { font-size: 16px; }
   font-size: 34px; font-weight: 700; letter-spacing: -.03em;
   margin-top: 8px; font-variant-numeric: tabular-nums;
 }
-.sim-best-rule { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+/* 疊加時每條規則各成一組。主行是「名稱 ─── 趴數 加了多少」，額度與條件
+   縮排掛在底下——原本四段資訊用「・」串一行，長了折行，折出來的那行跟下一條
+   規則長得一樣，三條疊起來整區就糊成一片 */
+.sim-rule { margin-top: 12px; }
+.sim-rule:first-of-type { margin-top: 10px; }
+.sim-rule-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 15px;
+}
+.sim-rule-name { flex: 1; min-width: 0; }
+.sim-rule-rate { flex: none; font-weight: 700; }
+/* 靠右對齊、等寬數字：幾條的 +$X 要能一眼加起來對上上面那個總回饋 */
+.sim-rule-add { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* 條件與額度降一級：它們是附註，不該跟規則本身搶。
+   舊版這裡是 font-weight 600，比規則行還重，權重整個顛倒 */
+.sim-rule-meta {
+  margin-top: 3px;
+  padding-left: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* 其他卡共用同一套版型，字級小一級：那裡是次要資訊，而且每列右邊還有
+   總金額與 chevron 要留位置，主行太大會擠 */
+.sim-row .sim-rule { margin-top: 7px; }
+.sim-row .sim-rule:first-of-type { margin-top: 4px; }
+.sim-row .sim-rule-head { font-size: 13px; }
+.sim-row .sim-rule-meta { font-size: 12px; padding-left: 8px; }
 /* 首選卡裡的行動按鈕：實心 accent，照片模式下不必另外處理對比 */
 .sim-record {
   width: 100%;
@@ -398,13 +428,20 @@ input { font-size: 16px; }
 .sim-none-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
 
 .sim-list { display: flex; flex-direction: column; gap: 8px; }
-/* 整列是 button（點了就用那張卡記一筆），把 button 的預設外觀壓掉 */
+/* 整列是 button（點了就用那張卡記一筆），把 button 的預設外觀壓掉。
+   align-items 用 flex-start 不用 center：規則明細攤開後這列會變高，
+   置中的話色塊與總金額會浮在明細中間，還會跟規則自己的金額擠在一起，
+   分不出哪個是這張卡的總回饋 */
 .sim-row {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: flex-start; gap: 12px;
   width: 100%; text-align: left; font-size: inherit;
   background: var(--surface); border-radius: 14px;
   padding: 12px 14px; box-shadow: var(--shadow);
 }
+/* 色塊、總金額、chevron 都對齊卡片名稱那一行的視覺中線 */
+.sim-row .dot { margin-top: 4px; }
+.sim-row .sim-amt { margin-top: 1px; }
+.sim-row .chev { margin-top: 1px; }
 .sim-row:active { filter: brightness(.96); }
 .sim-row.dim { opacity: .72; }
 /* 回饋 0 的卡照樣可以點——但按下去要有反應，不然會以為壞了 */
@@ -1331,6 +1368,7 @@ body.has-photo::before {
 .has-photo .btn-block,
 .has-photo .sim-best-name,
 .has-photo .sim-best-reward,
+.has-photo .sim-rule-head,
 .has-photo .sim-none-big,
 .has-photo .sim-name,
 .has-photo .sim-amt,
@@ -1345,7 +1383,7 @@ body.has-photo::before {
 .has-photo .sim-maybe,
 .has-photo .sim-hint,
 .has-photo .sim-best-label,
-.has-photo .sim-best-rule,
+.has-photo .sim-rule-meta,
 .has-photo .sim-none-sub,
 .has-photo .sim-sub,
 .has-photo .sim-cond,

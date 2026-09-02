@@ -100,8 +100,11 @@ function matchesIgnoringExpiry(rule, { smallPay, merchant, overseas }) {
     return !!merchantHit(rule, merchant)
   }
 
-  // 沒填 merchants ＝一般消費，這才是名單排除作用的地方
-  if (smallPay && rule.excludeSmallPay) return false
+  // 沒填 merchants ＝一般消費，這才是名單排除作用的地方。
+  // mobilePay 是使用者對這條規則的宣告：「這筆是刷行動支付的」——多數銀行的
+  // 行動支付不吃小額支付通路的排除，所以名單命中也照樣給。舊資料沒有這個欄位
+  // ＝undefined＝falsy，行為與加這功能之前完全一致。
+  if (smallPay && rule.excludeSmallPay && !rule.mobilePay) return false
   return true
 }
 
@@ -109,7 +112,8 @@ function matchesIgnoringExpiry(rule, { smallPay, merchant, overseas }) {
  * 這筆消費適用這條規則嗎？
  * - 適用範圍對不上（規則限國內、這筆是國外，或反過來）一票否決
  * - 有填 merchants ＝指定商家規則：只認商家命中，且**優先於名單排除**
- * - 沒填＝一般消費：什麼都適用，但會吃「排除名單內通路」那個開關
+ * - 沒填＝一般消費：什麼都適用，但會吃「排除名單內通路」那個開關；
+ *   除非那條規則標了綁行動支付（多數銀行的行動支付不受名單限制）
  * - 過期的規則不給回饋：算錯會讓人刷錯卡，比不算更糟
  * 規則不看分類（2026-08-21 使用者定案）：舊資料的 categories 欄位一律忽略。
  */

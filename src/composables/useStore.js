@@ -162,6 +162,9 @@ export const newRule = () => ({
   capType: 'none',
   capAmount: 0,
   excludeSmallPay: true,
+  // 這條規則是綁行動支付的：名單內通路照樣給回饋（多數銀行如此，但不保證）。
+  // 只有在 excludeSmallPay 為真時才有意義——沒排除就沒有要規避的東西
+  mobilePay: false,
   // 可與其他規則疊加：基本回饋＋加碼各吃各的上限。舊資料沒這欄＝false，行為不變
   stackable: false,
   // 適用範圍 any／domestic／overseas。舊資料沒這欄＝不限，行為不變

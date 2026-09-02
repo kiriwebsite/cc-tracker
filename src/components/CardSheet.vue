@@ -398,6 +398,23 @@ function del() {
         </span>
       </button>
 
+      <!-- 只在「有排除」時才問：沒排除就沒有要規避的東西，先擺著只會讓人
+           以為勾了會多給回饋。跟上面同一層、不縮排（使用者定案）——
+           只在上層勾選時出現，加上文案的「但」字，從屬關係已經夠清楚。
+           文案不敢寫死：各家銀行認定不同，我們給的是試算不是保證 -->
+      <button
+        v-if="r.excludeSmallPay"
+        type="button"
+        class="toggle-row"
+        @click="r.mobilePay = !r.mobilePay"
+      >
+        <span class="toggle-box" :class="{ on: r.mobilePay }">{{ r.mobilePay ? '✓' : '' }}</span>
+        <span class="toggle-text">
+          但綁行動支付就不受名單限制
+          <em>多數銀行的行動支付（Apple Pay、Google Pay、感應扣款…）不吃這份名單，勾了之後名單內通路照樣算回饋。實際仍以銀行判定為準</em>
+        </span>
+      </button>
+
       <button
         type="button"
         class="toggle-row"
