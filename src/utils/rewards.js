@@ -39,9 +39,23 @@ const EPS = 0.001
 /** 這條規則有設上限嗎（沒設＝無限） */
 export const hasCap = (rule) => rule.capType !== 'none' && Number(rule.capAmount) > 0
 
+/** 反向比對的最短長度。一個字沒有鑑別度，見 merchantHit */
+const MIN_LOOSE = 2
+
 /**
- * 指定商家比對：正規化後「雙向包含」——輸入「肯德基板橋店」中關鍵字「肯德基」，
- * 輸入「肯德基」也中清單裡的長格式全名（銀行 PDF 常是分店全名）。
+ * 指定商家比對。正規化後看兩個方向，但兩個方向的可信度不同：
+ *
+ * 1. 使用者打的字**包含**關鍵字——打「肯德基板橋店」中規則的「肯德基」。
+ *    這個方向不會錯：他打的就是完整店名，關鍵字只是其中一段。
+ *
+ * 2. 關鍵字**包含**使用者打的字——讓短名中得到長格式全名（銀行 PDF 常是
+ *    分店全名）。這個方向要求至少 MIN_LOOSE 個字：打一個「麥」就中「麥當勞」
+ *    並給 10% 回饋是誤判，使用者只是還沒打完（2026-09-01 實際踩到）。
+ *
+ * 同一份 repo 的 matchSmallPay 早就分過這兩個方向（sure／maybe），
+ * 理由一樣：「誠品」與「誠品置物櫃」是兩家不同的店。這裡沒有 maybe 可以退，
+ * 因為回饋要嘛算要嘛不算，所以改用長度門檻擋掉最沒鑑別度的那種。
+ *
  * 回傳命中的關鍵字原文（給 UI 標明是誰中的，方便使用者抓誤判），沒中回 null。
  */
 export function merchantHit(rule, merchant) {
@@ -49,7 +63,9 @@ export function merchantHit(rule, merchant) {
   if (!mk) return null
   for (const kw of rule.merchants || []) {
     const kk = matchKey(kw)
-    if (kk && (mk.includes(kk) || kk.includes(mk))) return kw
+    if (!kk) continue
+    if (mk.includes(kk)) return kw
+    if (mk.length >= MIN_LOOSE && kk.includes(mk)) return kw
   }
   return null
 }
