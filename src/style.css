@@ -470,7 +470,9 @@ input { font-size: 16px; }
   color: var(--text);
   border-bottom: 1px solid var(--line);
 }
-.ms-item:last-of-type { border-bottom: none; }
+/* 沒有底部那行時，最後一項不留線；有的話就由它的 border-bottom 當分隔，
+   所以 .ms-more 自己不畫 border-top（畫了會疊成兩條） */
+.ms-item:last-child { border-bottom: none; }
 .ms-item:active { background: var(--accent-soft); }
 .ms-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* 只有「記過」一種標記，低調就好——它是幫你認出自己記過的店，不是警告 */
@@ -482,8 +484,40 @@ input { font-size: 16px; }
   font-size: 12px;
   color: var(--text-dim);
   background: var(--surface);
-  border-top: 1px solid var(--line);
 }
+/* 還沒展開時它是按鈕。用 accent 色跟純文字版本區分開——同一個位置有時可點
+   有時不可點，顏色是唯一講得清楚的線索 */
+.ms-more-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.ms-more-btn:active { background: var(--accent-soft); }
+
+/* 全部結果面板：清單自己捲，面板本身不長高——結果有兩千筆時，
+   讓面板跟著長會把「取消」推到螢幕外 */
+.ms-all {
+  margin-top: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  max-height: 52vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* 面板裡的清單項目沿用 .ms-item，但它在 sheet 裡是不透明底，
+   照片模式的白字規則不該套進來（.has-photo 只列直接坐在照片上的元素） */
+.ms-loading {
+  padding: 28px 12px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-dim);
+  animation: ms-loading-pulse 1.1s ease-in-out infinite;
+}
+@keyframes ms-loading-pulse { 50% { opacity: .45; } }
 .ms-tag {
   flex: none;
   font-size: 11px;

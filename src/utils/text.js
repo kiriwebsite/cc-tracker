@@ -21,6 +21,30 @@ export const normalizeChannel = (s) =>
 export const matchKey = (s) => normalizeChannel(s).replace(/\s+/g, '').toLowerCase()
 
 /**
+ * 把使用者打的字拆成搜尋關鍵字（找店用，不是判定用）。
+ *
+ * 「q 三重」要中「Q Burger 三重店」——單一連續子字串比不到，中間隔著 Burger。
+ * 拆成多個關鍵字、改成「每個都要出現、順序不拘」就中得到。
+ *
+ * 兩種分詞點：
+ *   1. 使用者自己打的空白＝他明確表達的分詞意圖
+ *   2. 英數與其他字的交界——中文使用者不會特地打「q 三重」中間那個空白，
+ *      「q三重」也要拆得開
+ *
+ * 純標點的片段不算關鍵字：打「7-11」的人要找的是「711超商」，那個減號不該
+ * 變成必須出現的條件。
+ *
+ * 只給候選清單這類「幫你找店」的功能用。判定「這筆消費在不在名單內」
+ * （matchSmallPay）不能走這套——那是要精確，多關鍵字會放寬到誤判。
+ */
+export const searchTokens = (q) =>
+  String(q || '')
+    .split(/\s+/)
+    .flatMap((part) => normalizeChannel(part).match(/[A-Za-z0-9]+|[^A-Za-z0-9]+/g) || [])
+    .map(matchKey)
+    .filter((t) => t && /[a-z0-9\u4e00-\u9fff]/.test(t))
+
+/**
  * 批次貼上的清單切割：換行、逗號（含全形）、頓號、分號都當分隔符，
  * 切完正規化、去空白、去重。卡片的指定商家清單用——
  * 從銀行官網或 PDF 複製一整串貼上就能吃。

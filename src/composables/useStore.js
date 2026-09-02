@@ -2,7 +2,7 @@ import { reactive, watch } from 'vue'
 import { ymd, monthOf } from '../utils/date'
 import { DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from '../data/categories'
 import { monthUsage, simulate, cappedStatuses } from '../utils/rewards'
-import { normalizeChannel, matchKey } from '../utils/text'
+import { normalizeChannel, matchKey, searchTokens } from '../utils/text'
 
 const KEY = 'cc-tracker-v1'
 
@@ -258,9 +258,13 @@ export const isSmallPay = (e) => e.smallPay === true
  * 回傳 { items, total }：items 是要渲染的那些（受 limit 限制），
  * total 是符合的總數，UI 靠它講「還有幾筆」。
  */
-export function suggestMerchants(q, limit = 200) {
-  const k = matchKey(q)
-  if (!k) return { items: [], total: 0 }
+export function suggestMerchants(q, limit = 10) {
+  // 多關鍵字：每個都要出現、順序不拘（見 searchTokens）。
+  // head／開頭吻合看第一個關鍵字——打「q 三重」時，q 開頭的那些該排前面
+  const tokens = searchTokens(q)
+  if (!tokens.length) return { items: [], total: 0 }
+  const hit = (key) => tokens.every((t) => key.includes(t))
+  const k0 = tokens[0]
 
   const seen = new Set()
   const past = []
@@ -272,28 +276,39 @@ export function suggestMerchants(q, limit = 200) {
     const name = (e.merchant || '').trim()
     if (!name) continue
     const key = matchKey(name)
-    if (!key || seen.has(key) || !key.includes(k)) continue
+    if (!key || seen.has(key) || !hit(key)) continue
     seen.add(key)
-    past.push({ name, past: true, head: key.startsWith(k) })
+    past.push({ name, past: true, head: key.startsWith(k0) })
   }
 
-  // 整份掃完，不再湊夠就停。要讓使用者滾到底，就得先知道到底有幾筆，
-  // 而且「開頭吻合排前面」只有在候選全都收齊之後排序才算數——舊版掃到
+  // 整份掃完，不再湊夠就停：要讓使用者滾到底，就得先知道到底有幾筆，
+  // 而且「開頭吻合排前面」只有在候選全都收齊之後才算數——更早的版本掃到
   // 第 24 筆就停，開頭吻合的若排在名單後段根本進不了清單。
-  // spKeys 是預先算好的，1.7 萬筆做 includes 是一次線性掃描，配上 120ms
-  // 的 debounce 綽綽有餘
+  //
+  // 但「掃完」不等於「全部留著」。從一個字就開始建議之後，單一個常見字
+  // （「全」「店」）可以命中上萬筆，那樣會每按一鍵就建上萬個物件再排序。
+  // 改成邊掃邊分兩桶、每桶只留 limit 筆：分桶本身就完成了「開頭吻合優先」
+  // 的排序（桶內維持名單原順序，跟先前 stable sort 的結果一致），
+  // 記憶體從 O(命中數) 降到 O(limit)，總數另外用計數器記。
+  const head = []
+  const tail = []
+  let listedTotal = 0
   for (let i = 0; i < spKeys.length; i++) {
     const key = spKeys[i]
-    if (!key || seen.has(key) || !key.includes(k)) continue
+    if (!key || seen.has(key) || !hit(key)) continue
     seen.add(key)
-    listed.push({ name: spChannels[i], past: false, head: key.startsWith(k) })
+    listedTotal++
+    const bucket = key.startsWith(k0) ? head : tail
+    if (bucket.length < limit) bucket.push({ name: spChannels[i], past: false })
   }
 
   const byHead = (a, b) => Number(b.head) - Number(a.head)
-  const all = [...past.sort(byHead), ...listed.sort(byHead)]
-  // total 給 UI 講「還有幾筆沒列出來」。limit 是渲染上限不是搜尋上限：
-  // 幾千個 DOM 節點在手機上會卡，超過的請使用者多打幾個字縮小範圍
-  return { items: all.slice(0, limit), total: all.length }
+  // 記過的商家永遠排在名單通路前面，數量是消費筆數等級，照舊整個排
+  const items = [...past.sort(byHead), ...head, ...tail].slice(0, limit)
+  // total 給 UI 講「還有幾筆沒列出來」。limit 是渲染上限不是搜尋上限——
+  // 10 筆是使用者定的（2026-09-01）：typeahead 是給你「認出想要的那個」，
+  // 不是給你瀏覽整份名單，Google 那條建議列也就這個量
+  return { items, total: past.length + listedTotal }
 }
 
 /**

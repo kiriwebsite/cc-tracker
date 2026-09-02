@@ -13,6 +13,19 @@ const emit = defineEmits(['record'])
 
 const amount = ref('')
 const merchant = ref('')
+const merchantLive = ref('')
+/**
+ * merchantLive ＝輸入框當下的字，含 IME 組字中（打了注音、字已經上到框裡，
+ * 但整串還沒按 Enter 確認的那段）。
+ *
+ * v-model 在原生 input 上是靠 vModelText 指令實作的，它在 compositionstart
+ * 到 compositionend 之間會擋掉更新——中文使用者打完注音、畫面上明明有字了，
+ * merchant 卻還是空的，候選清單要等按 Enter 才動。
+ *
+ * template 上另外掛的 @input 是獨立的 listener，沒有那道 guard，組字中照樣
+ * 觸發。分工：merchant 是「已確認的字」，餵給試算與名單比對（不該拿半成品
+ * 去算）；merchantLive 只餵候選清單。
+ */
 const searchOpen = ref(false)
 // 國內／國外自己切，不自動判定：沒有可靠的判斷依據，猜錯會讓人刷錯卡
 const overseas = ref(false)
@@ -80,6 +93,7 @@ watch(merchant, (v) => {
 function pickMerchant(name) {
   pickedValue = name
   merchant.value = name
+  merchantLive.value = name
   suggestOff.value = true
   // 點候選＝使用者親自指認這家店是誰，不必再等 debounce 才給結論
   settled.value = name
@@ -165,12 +179,13 @@ function roomText(r) {
     <input
       id="sim-merchant"
       v-model="merchant"
+      @input="merchantLive = $event.target.value"
       type="text"
       class="text-field"
       placeholder="例：肯德基——自動比對各卡規則與小額支付/排除名單"
       autocomplete="off"
     />
-    <MerchantSuggest :query="merchant" :suppressed="suggestOff" @pick="pickMerchant" />
+    <MerchantSuggest :query="merchantLive" :suppressed="suggestOff" input-id="sim-merchant" @pick="pickMerchant" />
 
     <!-- 名單命中改自動判定：命中名單就標出來（含命中的是哪一筆），
          有排除小額的規則會直接被擋掉，不用再手動勾 -->

@@ -9,11 +9,15 @@
 // 候選清單慢半拍就失去 typeahead 的意義，120ms 是跟手與省算的折衷。
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { suggestMerchants } from '../composables/useStore'
+import BottomSheet from './BottomSheet.vue'
 
 const props = defineProps({
   query: { type: String, default: '' },
   // 使用者剛點過候選之後要收起來，不然點完清單還杵在那裡擋畫面
   suppressed: { type: Boolean, default: false },
+  // 自己那個輸入框的 id。用來分辨「點回來繼續找」與「跑去點別的欄位」——
+  // 前者要把清單放回來，後者是離開了，該收起
+  inputId: { type: String, default: '' },
 })
 
 const emit = defineEmits(['pick'])
@@ -42,34 +46,93 @@ watch(
   },
 )
 
+const isMyInput = (el) => !!props.inputId && el?.id === props.inputId
+
 function onPointerDown(e) {
+  if (sheetOpen.value) return
   if (root.value?.contains(e.target)) return
-  // 點回輸入框是要繼續打字，不是要關掉清單
-  if (e.target?.closest?.('input, textarea')) return
+  // 點回自己的輸入框＝還在找這家店，把清單放回來。
+  // 點別的欄位（金額、備註）則是離開了，照樣收起
+  if (isMyInput(e.target)) {
+    dismissed.value = false
+    return
+  }
   dismissed.value = true
 }
+
+// 鍵盤走 Tab 回到輸入框也算「回來繼續找」，不是只有點擊
+function onFocusIn(e) {
+  if (isMyInput(e.target)) dismissed.value = false
+}
 const onKeydown = (e) => {
-  if (e.key === 'Escape') dismissed.value = true
+  // 面板開著時 Esc 是要關面板（BottomSheet 自己收），不是收清單
+  if (e.key === 'Escape' && !sheetOpen.value) dismissed.value = true
 }
 
 onMounted(() => {
   document.addEventListener('pointerdown', onPointerDown)
   document.addEventListener('keydown', onKeydown)
+  document.addEventListener('focusin', onFocusIn)
 })
 onUnmounted(() => {
   clearTimeout(debounce)
   document.removeEventListener('pointerdown', onPointerDown)
   document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('focusin', onFocusIn)
 })
 
-// 一個字就開始建議會跳出太多雜訊，兩個字才有鑑別度
+/**
+ * 平常只給 10 筆——typeahead 是給你認出想要的那個，不是給你瀏覽整份名單。
+ * 要看全部就開面板（openAll），不在原地把清單愈撐愈長：清單是佔版面推開
+ * 後面內容的，撐長了會把試算結果整個推出畫面外。
+ */
+const LIMIT = 10
+
+/**
+ * 面板一次列出的上限。使用者說「慢慢跑沒關係」，但 1.7 萬筆全塞進 DOM 是
+ * 卡到動不了而不是慢，所以仍有天花板，只是拉得比清單高很多。
+ * 超過的部分在面板裡照實說，不假裝列完了。
+ */
+const ALL = 2000
+
+const sheetOpen = ref(false)
+const loading = ref(false)
+const allItems = ref([])
+const allTotal = ref(0)
+
+function openAll() {
+  sheetOpen.value = true
+  loading.value = true
+  allItems.value = []
+  // 先讓 loading 這一幀真的畫出來，再做重活。同一個 tick 裡直接算的話畫面
+  // 會整個凍住，然後結果突然出現——使用者只會覺得卡，看不到我們在忙。
+  //
+  // 用 setTimeout 不用 requestAnimationFrame：rAF 在分頁不可見時會被凍結，
+  // 面板會永遠停在 loading（BottomSheet 不用 <Transition> 是同一個原因，
+  // 見那支元件的註解）。16ms 約一幀，夠瀏覽器把 loading 畫出來
+  setTimeout(() => {
+    const r = suggestMerchants(settled.value, ALL)
+    allItems.value = r.items
+    allTotal.value = r.total
+    loading.value = false
+  }, 16)
+}
+
+function pickFromSheet(name) {
+  sheetOpen.value = false
+  emit('pick', name)
+}
+
+// 一個字就開始建議。以前擋在兩個字是怕跳出太多雜訊，但清單現在可以捲、
+// 底下也講得出「還有 N 筆」，接不住的量由 UI 承接就好——而打第一個字時
+// 正是最需要提示的時候（尤其記帳頁那個欄位，使用者常常懶得打完整名字）
 const result = computed(() =>
-  props.suppressed || dismissed.value || settled.value.length < 2
+  props.suppressed || dismissed.value || settled.value.length < 1
     ? { items: [], total: 0 }
-    : suggestMerchants(settled.value),
+    : suggestMerchants(settled.value, LIMIT),
 )
 const items = computed(() => result.value.items)
-// 還有幾筆沒列出來。清單可以滾，但不會把上千筆全渲染出來
+// 還有幾筆沒列出來
 const more = computed(() => result.value.total - items.value.length)
 </script>
 
@@ -90,7 +153,40 @@ const more = computed(() => result.value.total - items.value.length)
            由勾選框底下那行講一次就夠。 -->
       <span v-if="it.past" class="ms-tag past">記過</span>
     </button>
-    <!-- 黏在底部：滾到哪都看得到還剩多少沒看，也才知道不是清單壞了 -->
-    <p v-if="more > 0" class="ms-more">還有 {{ more.toLocaleString('en-US') }} 筆，多打幾個字縮小範圍</p>
+    <!-- 黏在底部：滾到哪都看得到還剩多少沒看，也才知道不是清單壞了。
+         點了開面板而不是原地展開——清單是佔版面推開後面內容的，
+         愈撐愈長會把試算結果推出畫面外 -->
+    <button v-if="more > 0" type="button" class="ms-more ms-more-btn" @click="openAll">
+      還有 {{ more.toLocaleString('en-US') }} 筆，全部展開 ›
+    </button>
   </div>
+
+  <!-- 全部結果的面板。它在記帳頁是疊在 ExpenseSheet 之上的第二層，
+       BottomSheet 用計數器處理背景捲動鎖與 Esc，疊著不會互相解鎖 -->
+  <BottomSheet
+    :open="sheetOpen"
+    :title="`「${settled}」的搜尋結果`"
+    hide-submit
+    @close="sheetOpen = false"
+  >
+    <p v-if="loading" class="ms-loading">整理中…</p>
+
+    <template v-else>
+      <p class="rules-empty">
+        共 {{ allTotal.toLocaleString('en-US') }} 筆<template v-if="allTotal > allItems.length">，先列前 {{ allItems.length.toLocaleString('en-US') }} 筆（再多請縮小範圍）</template>
+      </p>
+      <div class="ms-all">
+        <button
+          v-for="it in allItems"
+          :key="it.name"
+          type="button"
+          class="ms-item"
+          @click="pickFromSheet(it.name)"
+        >
+          <span class="ms-name">{{ it.name }}</span>
+          <span v-if="it.past" class="ms-tag past">記過</span>
+        </button>
+      </div>
+    </template>
+  </BottomSheet>
 </template>

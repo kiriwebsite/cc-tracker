@@ -25,6 +25,19 @@ const category = ref(null)
 const date = ref('')
 const note = ref('')
 const merchant = ref('')
+const merchantLive = ref('')
+/**
+ * merchantLive ＝輸入框當下的字，含 IME 組字中（打了注音、字已經上到框裡，
+ * 但整串還沒按 Enter 確認的那段）。
+ *
+ * v-model 在原生 input 上是靠 vModelText 指令實作的，它在 compositionstart
+ * 到 compositionend 之間會擋掉更新——中文使用者打完注音、畫面上明明有字了，
+ * merchant 卻還是空的，候選清單要等按 Enter 才動。
+ *
+ * template 上另外掛的 @input 是獨立的 listener，沒有那道 guard，組字中照樣
+ * 觸發。分工：merchant 是「已確認的字」，餵給試算與名單比對（不該拿半成品
+ * 去算）；merchantLive 只餵候選清單。
+ */
 const err = ref('')
 const amountInput = ref(null)
 
@@ -107,6 +120,7 @@ watch(merchant, (v) => {
 function pickMerchant(name) {
   pickedValue = name
   merchant.value = name
+  merchantLive.value = name
   suggestOff.value = true
   // 點候選＝使用者親自指認這家店是誰，歧義已經由他解掉了，
   // 所以把自動判定的主導權交回去（就算他先前手動改過勾選框）
@@ -128,6 +142,7 @@ watch(
     date.value = e ? e.date : ymd(new Date())
     note.value = e ? e.note || '' : ''
     merchant.value = e ? e.merchant || '' : pf?.merchant || ''
+    merchantLive.value = merchant.value
     smallPay.value = e ? e.smallPay === true : pf?.smallPay === true
     overseas.value = e ? e.overseas === true : pf?.overseas === true
     err.value = ''
@@ -243,13 +258,14 @@ function del() {
     <input
       id="exp-merchant"
       v-model="merchant"
+      @input="merchantLive = $event.target.value"
       type="text"
       class="text-field"
       placeholder="選填，記錄在哪刷的"
       maxlength="40"
       autocomplete="off"
     />
-    <MerchantSuggest :query="merchant" :suppressed="suggestOff" @pick="pickMerchant" />
+    <MerchantSuggest :query="merchantLive" :suppressed="suggestOff" input-id="exp-merchant" @pick="pickMerchant" />
 
     <!-- 從試算頁按「記一筆」進來的：國內／國外在那邊就選定了，不再問第二次。
          只有國外留一行字——它是少數情況，使用者得看得出這筆被記成什麼；
