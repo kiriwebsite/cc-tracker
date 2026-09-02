@@ -180,21 +180,28 @@ export const newRule = () => ({
 export const smallPayChannels = () => spChannels
 
 /**
- * 名單查詢：找出名單裡含這段文字的店。
+ * 名單查詢：找出名單裡含這些關鍵字的店。
  * 設定頁的查詢面板用——翻名單的工具，寬鬆一點才好找，不參與任何判定。
+ *
+ * 跟商家候選清單走同一套分詞（searchTokens）與同一套排序：打「q 三重」要中
+ * 「Q Burger 三重店」，開頭吻合的排前面。兩個都是「幫你找店」的功能，
+ * 行為不一致的話，使用者在這裡查不到、在試算頁卻查得到，只會覺得壞了。
  */
 export function searchSmallPay(q, limit = 50) {
-  const k = matchKey(q)
-  if (!k || !spKeys.length) return { hits: [], total: 0 }
-  const hits = []
+  const tokens = searchTokens(q)
+  if (!tokens.length || !spKeys.length) return { hits: [], total: 0 }
+
+  const head = []
+  const tail = []
   let total = 0
   for (let i = 0; i < spKeys.length; i++) {
-    if (spKeys[i]?.includes(k)) {
-      total++
-      if (hits.length < limit) hits.push(spChannels[i])
-    }
+    const key = spKeys[i]
+    if (!key || !tokens.every((t) => key.includes(t))) continue
+    total++
+    const bucket = key.startsWith(tokens[0]) ? head : tail
+    if (bucket.length < limit) bucket.push(spChannels[i])
   }
-  return { hits, total }
+  return { hits: [...head, ...tail].slice(0, limit), total }
 }
 
 /**
