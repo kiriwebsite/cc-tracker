@@ -185,7 +185,13 @@ function roomText(r) {
       placeholder="例：肯德基——自動比對各卡規則與小額支付/排除名單"
       autocomplete="off"
     />
-    <MerchantSuggest :query="merchantLive" :suppressed="suggestOff" input-id="sim-merchant" @pick="pickMerchant" />
+    <MerchantSuggest
+      :query="merchantLive"
+      :suppressed="suggestOff"
+      input-id="sim-merchant"
+      @pick="pickMerchant"
+      @reopen="suggestOff = false"
+    />
 
     <!-- 名單命中改自動判定：命中名單就標出來（含命中的是哪一筆），
          有排除小額的規則會直接被擋掉，不用再手動勾 -->

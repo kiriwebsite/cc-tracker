@@ -1445,6 +1445,7 @@ body.has-photo::before {
 .photo-light .sync-recv .field-label,
 .photo-light .row-btn { color: var(--text); }
 .photo-light .btn-block,
+.photo-light .sim-rule-head,
 .photo-light .sim-best-name,
 .photo-light .sim-best-reward,
 .photo-light .sim-none-big,
@@ -1461,7 +1462,7 @@ body.has-photo::before {
 .photo-light .sim-maybe,
 .photo-light .sim-hint,
 .photo-light .sim-best-label,
-.photo-light .sim-best-rule,
+.photo-light .sim-rule-meta,
 .photo-light .sim-none-sub,
 .photo-light .sim-sub,
 .photo-light .sim-cond,

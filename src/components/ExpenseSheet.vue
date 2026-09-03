@@ -265,7 +265,13 @@ function del() {
       maxlength="40"
       autocomplete="off"
     />
-    <MerchantSuggest :query="merchantLive" :suppressed="suggestOff" input-id="exp-merchant" @pick="pickMerchant" />
+    <MerchantSuggest
+      :query="merchantLive"
+      :suppressed="suggestOff"
+      input-id="exp-merchant"
+      @pick="pickMerchant"
+      @reopen="suggestOff = false"
+    />
 
     <!-- 從試算頁按「記一筆」進來的：國內／國外在那邊就選定了，不再問第二次。
          只有國外留一行字——它是少數情況，使用者得看得出這筆被記成什麼；

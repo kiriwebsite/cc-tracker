@@ -20,7 +20,12 @@ const props = defineProps({
   inputId: { type: String, default: '' },
 })
 
-const emit = defineEmits(['pick'])
+/**
+ * reopen：使用者把游標放回這個欄位，代表他還要繼續找。
+ * dismissed 是自己的狀態可以直接清，但「點過候選之後收起來」那個旗標
+ * （suppressed）在父層手上，只能請它放開。
+ */
+const emit = defineEmits(['pick', 'reopen'])
 
 const settled = ref('')
 const root = ref(null)
@@ -55,6 +60,7 @@ function onPointerDown(e) {
   // 點別的欄位（金額、備註）則是離開了，照樣收起
   if (isMyInput(e.target)) {
     dismissed.value = false
+    emit('reopen')
     return
   }
   dismissed.value = true
@@ -62,7 +68,9 @@ function onPointerDown(e) {
 
 // 鍵盤走 Tab 回到輸入框也算「回來繼續找」，不是只有點擊
 function onFocusIn(e) {
-  if (isMyInput(e.target)) dismissed.value = false
+  if (!isMyInput(e.target)) return
+  dismissed.value = false
+  emit('reopen')
 }
 const onKeydown = (e) => {
   // 面板開著時 Esc 是要關面板（BottomSheet 自己收），不是收清單
